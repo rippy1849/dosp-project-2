@@ -1,5 +1,6 @@
 import argv
 import gleam/erlang/process
+import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
@@ -14,7 +15,7 @@ pub type State {
       Int,
       String,
       String,
-      List(#(Int, process.Subject(Message))),
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
     ),
     stack: List(String),
   )
@@ -24,7 +25,14 @@ pub type State {
 pub type Message {
   Shutdown
   SetInternal(
-    #(Float, Float, Int, String, String, List(#(Int, process.Subject(Message)))),
+    #(
+      Float,
+      Float,
+      Int,
+      String,
+      String,
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
+    ),
   )
   // GetInternal(process.Subject(Int))
   Push(String)
@@ -105,23 +113,46 @@ fn handle_args(args) {
   // echo algorithm
 
   // full, 3D, line, or imp3D default
-  let topology_number = case topology {
-    "full" -> "full"
-    "3D" -> "3D"
-    "line" -> "line"
-    "imp3D" -> "imp3D"
-    _ -> "full"
+  // let topology_number = case topology {
+  //   "full" -> "full"
+  //   "3D" -> "3D"
+  //   "line" -> "line"
+  //   "imp3D" -> "imp3D"
+  //   _ -> "full"
+  // }
+
+  //Set number_of_nodes, in case it is cube
+  let number_of_nodes = case topology {
+    "full" -> number_of_nodes
+    "3D" -> {
+      let base_list = list.range(0, number_of_nodes - 1)
+
+      let cube_list = list.map(base_list, fn(n) { n * n * n })
+
+      let number_of_nodes = case
+        list.find(cube_list, fn(n) { number_of_nodes <= n })
+      {
+        Ok(number_of_nodes) -> number_of_nodes
+        Error(_) -> 0
+      }
+      number_of_nodes
+    }
+    "line" -> number_of_nodes
+    "imp3D" -> {
+      let base_list = list.range(0, number_of_nodes - 1)
+
+      let cube_list = list.map(base_list, fn(n) { n * n * n })
+
+      let number_of_nodes = case
+        list.find(cube_list, fn(n) { number_of_nodes <= n })
+      {
+        Ok(number_of_nodes) -> number_of_nodes
+        Error(_) -> 0
+      }
+      number_of_nodes
+    }
+    _ -> 0
   }
-
-  // let topology = case int.parse(topology) {
-  //   Ok(topology) -> topology
-  //   Error(_) -> 0
-  // }
-
-  // let algorithm = case algorithm {
-  //   Ok(algorithm) -> algorithm
-  //   Error(_) -> "Full"
-  // }
 
   let task = list.range(0, number_of_nodes - 1)
 
@@ -132,22 +163,59 @@ fn handle_args(args) {
     |> actor.on_message(handle_message)
     |> actor.start
 
-  let actor_list =
+  let line_or_full_actor_list =
     list.map(task, fn(n) {
       let assert Ok(started) =
         actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
         |> actor.on_message(handle_message)
         |> actor.start
 
-      #(n, started.data)
+      #(n, started.data, 0, 0, 0)
     })
+
+  let base = cube_rt(number_of_nodes)
+
+  // let y_list = list.range(0, cubed_root)
+
+  // let coordinates = list.range(0, base - 1)
+  // echo coordinates
+
+  // let mapping =
+  //   list.map(coordinates, fn(z) {
+  //     list.map(coordinates, fn(y) {
+  //       list.map(coordinates, fn(x) { #(x, y, z) })
+  //     })
+  //   })
+
+  // echo mapping
+
+  let three_d = cube_coords(base, topology, algorithm)
+  // echo three_d
+
+  let actor_list = case topology {
+    "full" -> line_or_full_actor_list
+    "3D" -> three_d
+    "line" -> line_or_full_actor_list
+    "imp3D" -> three_d
+    _ -> line_or_full_actor_list
+  }
+
+  // echo actor_list
+
+  // let coordinate_mapping = list.map(task, fn(n){
+
+  // })
+  let default_placeholder = #(0, default_actor.data, 0, 0, 0)
 
   // list.each(actor_list, fn(n) { process.send(n, Push("Alice")) })
 
-  set_up_topology(actor_list, number_of_nodes, topology, algorithm, #(
-    0,
-    default_actor.data,
-  ))
+  set_up_topology(
+    actor_list,
+    number_of_nodes,
+    topology,
+    algorithm,
+    default_placeholder,
+  )
 
   // echo task
   // let assert Ok(started) =
@@ -172,9 +240,9 @@ fn nth(xs: List(String), i: Int) -> Result(String, Nil) {
 }
 
 fn nth_actor(
-  xs: List(#(Int, process.Subject(Message))),
+  xs: List(#(Int, process.Subject(Message), Int, Int, Int)),
   i: Int,
-) -> Result(#(Int, process.Subject(Message)), Nil) {
+) -> Result(#(Int, process.Subject(Message), Int, Int, Int), Nil) {
   case xs {
     [] -> Error(Nil)
     // list too short
@@ -195,6 +263,7 @@ fn set_up_topology(
   algorithm,
   default_actor,
 ) {
+  // echo 1
   // case topology {
   //   "full" -> "full"
   //   "3D" -> "3D"
@@ -204,7 +273,14 @@ fn set_up_topology(
   // }
 
   // set_up_full_topology(actor_list, topology, algorithm, default_actor)
-  set_up_line_topology(actor_list, topology, algorithm, default_actor)
+  // set_up_line_topology(actor_list, topology, algorithm, default_actor)
+  set_up_three_d_topology(
+    actor_list,
+    topology,
+    algorithm,
+    default_actor,
+    number_of_nodes,
+  )
 }
 
 fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
@@ -214,7 +290,7 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
     // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
     // process.send(actor, SetInternal(hi))
 
-    let #(actor_number, actor) = actor_tuple
+    let #(actor_number, actor, x, y, z) = actor_tuple
 
     // echo hi
 
@@ -250,7 +326,7 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
 
         filtered_actor
       })
-    echo neighbor_list
+    // echo neighbor_list
     //Set the internal state with updated topology neighbors
 
     let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
@@ -282,7 +358,7 @@ fn set_up_line_topology(actor_list, topology, algorithm, default_actor) {
     // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
     // process.send(actor, SetInternal(hi))
 
-    let #(actor_number, actor) = actor_tuple
+    let #(actor_number, actor, x, y, z) = actor_tuple
 
     // echo hi
 
@@ -346,5 +422,295 @@ fn set_up_line_topology(actor_list, topology, algorithm, default_actor) {
 
     let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
     process.send(actor, SetInternal(internal_state))
+  })
+}
+
+fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube) {
+  // echo actor_list
+
+  // let cubed_root = case
+  //   int.power(cube, 0.3333333333333333333333333333333333333333)
+  // {
+  //   Ok(cubed_root) -> cubed_root
+  //   Error(_) -> 0.0
+  // }
+  // // echo cubed_root
+  // //Round to nearest number, should be correct
+  // let cubed_root = float.ceiling(cubed_root)
+  // echo cubed_root
+  let base = cube_rt(cube)
+
+  let square = base * base
+  // echo base
+  // echo square
+  // echo cube
+
+  // let phase1 = list.range(0, base - 1)
+
+  list.each(actor_list, fn(actor_tuple) {
+    // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
+    // process.send(actor, SetInternal(hi))
+
+    let #(actor_number, actor, x, y, z) = actor_tuple
+    //Corner Cases
+    // let neighbor_list = case
+    //   { x == 0 && y == 0 && z == 0 }
+    //   || { x == base - 1 && y == 0 && z == 0 }
+    //   || { x == 0 && y == base - 1 && z == 0 }
+    //   || { x == base - 1 && y == base - 1 && z == 0 }
+    //   || { x == 0 && y == 0 && z == base - 1 }
+    //   || { x == base - 1 && y == 0 && z == base - 1 }
+    //   || { x == 0 && y == base - 1 && z == base - 1 }
+    //   || { x == base - 1 && y == base - 1 && z == base - 1 }
+    // {
+    //   True -> list.range(0, 2)
+    //   False -> list.range(0, 0)
+    // }
+
+    //Edges Cases
+    // let neighbor_list = case
+    //   { x > 0 && x < base - 1 && y == 0 && z == 0 }
+    //   || { x > 0 && x < base - 1 && y == base - 1 && z == 0 }
+    //   || { y > 0 && y < base - 1 && x == 0 && z == 0 }
+    //   || { y > 0 && y < base - 1 && x == base - 1 && z == 0 }
+    //   || { x > 0 && x < base - 1 && y == 0 && z == base - 1 }
+    //   || { x > 0 && x < base - 1 && y == base - 1 && z == base - 1 }
+    //   || { y > 0 && y < base - 1 && x == 0 && z == base - 1 }
+    //   || { y > 0 && y < base - 1 && x == base - 1 && z == base - 1 }
+    //   || { z > 0 && z < base - 1 && x == 0 && y == 0 }
+    //   || { z > 0 && z < base - 1 && x == 0 && y == base - 1 }
+    //   || { z > 0 && z < base - 1 && x == base - 1 && y == 0 }
+    //   || { z > 0 && z < base - 1 && x == base - 1 && y == base - 1 }
+    // {
+    //   True -> list.range(0, 3)
+    //   False -> list.range(0, 0)
+    // }
+
+    //Face Cases
+    // let neighbor_list = case
+    //   { y > 0 && y < base - 1 && x == 0 && z > 0 && z < base - 1 }
+    //   || { y > 0 && y < base - 1 && x == base - 1 && z > 0 && z < base - 1 }
+    //   || { x > 0 && x < base - 1 && y == 0 && z > 0 && z < base - 1 }
+    //   || { x > 0 && x < base - 1 && y == base - 1 && z > 0 && z < base - 1 }
+    //   || { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == 0 }
+    //   || { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == base - 1 }
+    // {
+    //   True -> list.range(0, 4)
+    //   False -> list.range(0, 0)
+    // }
+
+    // let neighbor_list = case
+    //   {
+    //     x > 0 && x < base - 1 && y > 0 && y < base - 1 && z > 0 && z < base - 1
+    //   }
+    // {
+    //   True -> list.range(0, 5)
+    //   False -> list.range(0, 0)
+    // }
+    //Corner Case first
+    let neighbor_list = case
+      { x == 0 && y == 0 && z == 0 }
+      || { x == base - 1 && y == 0 && z == 0 }
+      || { x == 0 && y == base - 1 && z == 0 }
+      || { x == base - 1 && y == base - 1 && z == 0 }
+      || { x == 0 && y == 0 && z == base - 1 }
+      || { x == base - 1 && y == 0 && z == base - 1 }
+      || { x == 0 && y == base - 1 && z == base - 1 }
+      || { x == base - 1 && y == base - 1 && z == base - 1 }
+    {
+      //Edges Case second
+      True -> list.range(0, 2)
+      False ->
+        case
+          { x > 0 && x < base - 1 && y == 0 && z == 0 }
+          || { x > 0 && x < base - 1 && y == base - 1 && z == 0 }
+          || { y > 0 && y < base - 1 && x == 0 && z == 0 }
+          || { y > 0 && y < base - 1 && x == base - 1 && z == 0 }
+          || { x > 0 && x < base - 1 && y == 0 && z == base - 1 }
+          || { x > 0 && x < base - 1 && y == base - 1 && z == base - 1 }
+          || { y > 0 && y < base - 1 && x == 0 && z == base - 1 }
+          || { y > 0 && y < base - 1 && x == base - 1 && z == base - 1 }
+          || { z > 0 && z < base - 1 && x == 0 && y == 0 }
+          || { z > 0 && z < base - 1 && x == 0 && y == base - 1 }
+          || { z > 0 && z < base - 1 && x == base - 1 && y == 0 }
+          || { z > 0 && z < base - 1 && x == base - 1 && y == base - 1 }
+        {
+          //Face Cases third
+          True -> list.range(0, 3)
+          False ->
+            case
+              { y > 0 && y < base - 1 && x == 0 && z > 0 && z < base - 1 }
+              || {
+                y > 0 && y < base - 1 && x == base - 1 && z > 0 && z < base - 1
+              }
+              || { x > 0 && x < base - 1 && y == 0 && z > 0 && z < base - 1 }
+              || {
+                x > 0 && x < base - 1 && y == base - 1 && z > 0 && z < base - 1
+              }
+              || { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == 0 }
+              || {
+                x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == base - 1
+              }
+            {
+              //Center case fourth
+              True -> list.range(0, 4)
+              False ->
+                case
+                  {
+                    x > 0
+                    && x < base - 1
+                    && y > 0
+                    && y < base - 1
+                    && z > 0
+                    && z < base - 1
+                  }
+                {
+                  True -> list.range(0, 5)
+                  False -> list.range(0, 0)
+                }
+            }
+        }
+    }
+
+    echo #(x, y, z)
+    echo neighbor_list
+    // io.println(
+    //   "X: "
+    //   <> int.to_string(x)
+    //   <> ", Y: "
+    //   <> int.to_string(y)
+    //   <> ", Z: "
+    //   <> int.to_string(z),
+    // )
+    // let actor_number2 = actor_number
+    // echo hi
+
+    // let list1 = list.range(0, 0)
+    // let list2 = list.range(0,3)
+    // let list3 = list.range(0,3)
+
+    // list.each(list1, fn(y) { list.each(list1, fn(x) { echo [x, y] }) })
+    // let neighbor_list = case actor_number {
+    //   0 -> list.range(0,2)
+
+    //   _ -> list.range(0,0)
+
+    // }
+
+    // case actor_number {
+    //   1 -> "one"
+    //   2 -> "two"
+    //   base -> "something else: " <> int.to_string(n)
+    // }
+    // let end_actor = list.length(actor_list) - 1
+
+    // // echo actor_number
+    // // echo end_actor
+    // echo base
+    // echo square
+    // echo cube
+
+    //Corner Case
+    // let neighbor_list = case
+    //   actor_number == 0
+    //   || actor_number == base - 1
+    //   || actor_number == square - base
+    //   || actor_number == square - 1
+    //   || actor_number == square * { base - 1 }
+    //   || actor_number == square * { base - 1 } + { base - 1 }
+    //   || actor_number == cube - base
+    //   || actor_number == cube - 1
+    // {
+    //   //Corner
+    //   True -> list.range(0, 2)
+    //   False -> list.range(0, 0)
+    // }
+
+    // echo actor_number
+    // echo neighbor_list
+
+    // let neighbor_list = case {
+    //   True -> list.range(0, 4)
+    //   False -> list.range(0, 0)
+    // }
+  })
+  // let neighbor_list = case actor_number == 0 {
+  //   True -> list.range(0, 0)
+  //   False ->
+  //     case actor_number == end_actor {
+  //       True -> list.range(0, 0)
+  //       False -> list.range(0, 1)
+  //     }
+  // }
+
+  // echo neighbor_list
+  // let test_subject = process.new_subject(Message)
+
+  // let first_actor = case nth_actor(actor_list, 0) {
+  //   Ok(arg) -> arg
+  //   Error(_) -> default_actor
+  // }
+
+  // list.map(neighbor_list, fn(n){
+  // let offset = 0
+  // let neighbor_list =
+  //   list.map(neighbor_list, fn(n) {
+  //     n
+  //     // let offset = case n >= actor_number {
+  //     //   True -> 1
+  //     //   False -> 0
+  //     // }
+
+  //     // index
+  //     // let filtered_actor = case nth_actor(actor_list, index) {
+  //     //   Ok(arg) -> arg
+  //     //   Error(_) -> default_actor
+  //     // }
+  //     // // echo filtered_actor
+
+  //     // filtered_actor
+  //   })
+  // echo neighbor_list
+  //Set the internal state with updated topology neighbors
+
+  // let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
+  // process.send(actor, SetInternal(internal_state))
+  // })
+}
+
+@external(erlang, "erlang", "trunc")
+pub fn float_to_int(x: Float) -> Int
+
+fn cube_rt(number) {
+  let cubed_root = case
+    int.power(number, 0.3333333333333333333333333333333333333333)
+  {
+    Ok(cubed_root) -> cubed_root
+    Error(_) -> 0.0
+  }
+  // echo cubed_root
+  //Round to nearest number, should be correct
+  let cubed_root = float.ceiling(cubed_root)
+
+  let base = float_to_int(cubed_root)
+  base
+}
+
+pub fn cube_coords(
+  n: Int,
+  topology,
+  algorithm,
+) -> List(#(Int, process.Subject(Message), Int, Int, Int)) {
+  list.flat_map(list.range(0, n - 1), fn(z) {
+    list.flat_map(list.range(0, n - 1), fn(y) {
+      list.map(list.range(0, n - 1), fn(x) {
+        let assert Ok(started) =
+          actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
+          |> actor.on_message(handle_message)
+          |> actor.start
+
+        #(x, started.data, x, y, z)
+      })
+    })
   })
 }
