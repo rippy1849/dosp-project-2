@@ -14,7 +14,7 @@ pub type State {
       Int,
       String,
       String,
-      List(process.Subject(Message)),
+      List(#(Int, process.Subject(Message))),
     ),
     stack: List(String),
   )
@@ -24,7 +24,7 @@ pub type State {
 pub type Message {
   Shutdown
   SetInternal(
-    #(Float, Float, Int, String, String, List(process.Subject(Message))),
+    #(Float, Float, Int, String, String, List(#(Int, process.Subject(Message)))),
   )
   // GetInternal(process.Subject(Int))
   Push(String)
@@ -203,7 +203,8 @@ fn set_up_topology(
   //   _ -> "full"
   // }
 
-  set_up_full_topology(actor_list, topology, algorithm, default_actor)
+  // set_up_full_topology(actor_list, topology, algorithm, default_actor)
+  set_up_line_topology(actor_list, topology, algorithm, default_actor)
 }
 
 fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
@@ -231,7 +232,7 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
 
     // list.map(neighbor_list, fn(n){
     // let offset = 0
-    let output =
+    let neighbor_list =
       list.map(neighbor_list, fn(n) {
         let offset = case n >= actor_number {
           True -> 1
@@ -249,7 +250,11 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
 
         filtered_actor
       })
-    echo output
+    echo neighbor_list
+    //Set the internal state with updated topology neighbors
+
+    let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
+    process.send(actor, SetInternal(internal_state))
     //   let index = case actor 
 
     // let first_actor = case nth_actor(actor_list, 0) {
@@ -267,5 +272,79 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
     //   //   False ->
     //   // }
     // })
+  })
+}
+
+fn set_up_line_topology(actor_list, topology, algorithm, default_actor) {
+  // echo actor_list
+
+  list.each(actor_list, fn(actor_tuple) {
+    // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
+    // process.send(actor, SetInternal(hi))
+
+    let #(actor_number, actor) = actor_tuple
+
+    // echo hi
+
+    let end_actor = list.length(actor_list) - 1
+
+    // echo actor_number
+    // echo end_actor
+
+    let neighbor_list = case actor_number == 0 {
+      True -> list.range(0, 0)
+      False ->
+        case actor_number == end_actor {
+          True -> list.range(0, 0)
+          False -> list.range(0, 1)
+        }
+    }
+
+    // echo neighbor_list
+    // let test_subject = process.new_subject(Message)
+
+    // let first_actor = case nth_actor(actor_list, 0) {
+    //   Ok(arg) -> arg
+    //   Error(_) -> default_actor
+    // }
+
+    // list.map(neighbor_list, fn(n){
+    // let offset = 0
+    let neighbor_list =
+      list.map(neighbor_list, fn(n) {
+        // let offset = case n >= actor_number {
+        //   True -> 1
+        //   False -> 0
+        // }
+        let offset = case actor_number == 0 {
+          True -> 2
+          False ->
+            case actor_number == end_actor {
+              True -> 0
+              False -> 0
+            }
+        }
+
+        let offset2 = case n {
+          0 -> -1
+          1 -> 1
+          _ -> 0
+        }
+        let index = actor_number + offset + offset2
+
+        // index
+        let filtered_actor = case nth_actor(actor_list, index) {
+          Ok(arg) -> arg
+          Error(_) -> default_actor
+        }
+        // // echo filtered_actor
+
+        filtered_actor
+      })
+    // echo neighbor_list
+    //Set the internal state with updated topology neighbors
+
+    let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
+    process.send(actor, SetInternal(internal_state))
   })
 }
