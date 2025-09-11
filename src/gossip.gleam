@@ -6,6 +6,20 @@ import gleam/io
 import gleam/list
 import gleam/otp/actor
 
+type Rule =
+  #(
+    fn(Int, Int, Int) -> Bool,
+    fn(
+      Int,
+      Int,
+      Int,
+      Int,
+      // predicate (x,y,z) -> true/false
+    ) ->
+      #(Int, Int, Int),
+    // mapper (n,x,y,z) -> new coords
+  )
+
 // Messages the actor understands. `e` is a type parameter (element type).
 pub type State {
   State(
@@ -256,6 +270,23 @@ fn nth_actor(
   }
 }
 
+pub fn nth_actor_coordinates(
+  xs: List(#(Int, process.Subject(Message), Int, Int, Int)),
+  x1: Int,
+  y1: Int,
+  z1: Int,
+) -> Result(#(Int, process.Subject(Message), Int, Int, Int), Nil) {
+  case xs {
+    [] -> Error(Nil)
+
+    [#(id, subj, x, y, z), ..rest] ->
+      case x == x1 && y == y1 && z == z1 {
+        True -> Ok(#(id, subj, x, y, z))
+        False -> nth_actor_coordinates(rest, x1, y1, z1)
+      }
+  }
+}
+
 fn set_up_topology(
   actor_list,
   number_of_nodes,
@@ -281,6 +312,12 @@ fn set_up_topology(
     default_actor,
     number_of_nodes,
   )
+  // let test1 = #(1, 2, 2)
+  // let test2 = #(1, 2, 2)
+  // echo test1 == 
+  // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
+
+  // echo result
 }
 
 fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
@@ -440,7 +477,7 @@ fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube)
   // echo cubed_root
   let base = cube_rt(cube)
 
-  let square = base * base
+  // let square = base * base
   // echo base
   // echo square
   // echo cube
@@ -519,7 +556,9 @@ fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube)
       || { x == base - 1 && y == base - 1 && z == base - 1 }
     {
       //Edges Case second
-      True -> list.range(0, 2)
+      True -> {
+        list.range(0, 2)
+      }
       False ->
         case
           { x > 0 && x < base - 1 && y == 0 && z == 0 }
@@ -572,30 +611,44 @@ fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube)
         }
     }
 
-    echo #(x, y, z)
-    echo neighbor_list
-    // io.println(
-    //   "X: "
-    //   <> int.to_string(x)
-    //   <> ", Y: "
-    //   <> int.to_string(y)
-    //   <> ", Z: "
-    //   <> int.to_string(z),
-    // )
-    // let actor_number2 = actor_number
-    // echo hi
+    let default_actor_list = list.range(0, 0)
+    let default_actor_list =
+      list.map(default_actor_list, fn(n) { default_actor })
+    // let output = get_actor(actor_list, default_actor, 1, 1, 1)
+    // echo output
+    // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
 
-    // let list1 = list.range(0, 0)
-    // let list2 = list.range(0,3)
-    // let list3 = list.range(0,3)
-
-    // list.each(list1, fn(y) { list.each(list1, fn(x) { echo [x, y] }) })
-    // let neighbor_list = case actor_number {
-    //   0 -> list.range(0,2)
-
-    //   _ -> list.range(0,0)
-
+    // let result = case result {
+    //   Ok(result) -> result
+    //   Error(_) -> default_actor
     // }
+    // echo result
+
+    // echo neighbor_list
+    // let actor_output = case { x == 0 && y == 0 && z == 0 } {
+
+    // neighbor_list: List(Int),
+    //   actor_list: List(a),
+    //   default_actor: a,
+    //   x: Int,
+    //   y: Int,
+    //   z: Int,
+    //   get_actor: fn(List(a), a, Int, Int, Int) -> a,
+
+    let output =
+      apply_mapping(
+        neighbor_list,
+        actor_list,
+        default_actor,
+        x,
+        y,
+        z,
+        get_actor,
+        base,
+      )
+    echo #(x, y, z)
+    echo output
+    // echo actor_output
 
     // case actor_number {
     //   1 -> "one"
@@ -713,4 +766,414 @@ pub fn cube_coords(
       })
     })
   })
+}
+
+pub fn get_actor(actor_list, default_actor, x, y, z) {
+  let result = nth_actor_coordinates(actor_list, x, y, z)
+
+  let result = case result {
+    Ok(result) -> result
+    Error(_) -> default_actor
+  }
+  result
+}
+
+pub fn rules(base) -> List(Rule) {
+  [
+    // corner at (0,0,0)
+    #(fn(x, y, z) { x == 0 && y == 0 && z == 0 }, corner1_map),
+    #(fn(x, y, z) { x == base - 1 && y == 0 && z == 0 }, corner2_map),
+    #(fn(x, y, z) { x == 0 && y == base - 1 && z == 0 }, corner3_map),
+    #(fn(x, y, z) { x == base - 1 && y == base - 1 && z == 0 }, corner4_map),
+    #(fn(x, y, z) { x == 0 && y == 0 && z == base - 1 }, corner5_map),
+    #(fn(x, y, z) { x == base - 1 && y == 0 && z == base - 1 }, corner6_map),
+    #(fn(x, y, z) { x == 0 && y == base - 1 && z == base - 1 }, corner7_map),
+    #(
+      fn(x, y, z) { x == base - 1 && y == base - 1 && z == base - 1 },
+      corner8_map,
+    ),
+    #(fn(x, y, z) { x > 0 && x < base - 1 && y == 0 && z == 0 }, edge1_map),
+    #(
+      fn(x, y, z) { x > 0 && x < base - 1 && y == base - 1 && z == 0 },
+      edge2_map,
+    ),
+    #(fn(x, y, z) { y > 0 && y < base - 1 && x == 0 && z == 0 }, edge3_map),
+    #(
+      fn(x, y, z) { y > 0 && y < base - 1 && x == base - 1 && z == 0 },
+      edge4_map,
+    ),
+    #(
+      fn(x, y, z) { x > 0 && x < base - 1 && y == 0 && z == base - 1 },
+      edge5_map,
+    ),
+    #(
+      fn(x, y, z) { x > 0 && x < base - 1 && y == base - 1 && z == base - 1 },
+      edge6_map,
+    ),
+    #(
+      fn(x, y, z) { y > 0 && y < base - 1 && x == 0 && z == base - 1 },
+      edge7_map,
+    ),
+    #(
+      fn(x, y, z) { y > 0 && y < base - 1 && x == base - 1 && z == base - 1 },
+      edge8_map,
+    ),
+    #(fn(x, y, z) { z > 0 && z < base - 1 && x == 0 && y == 0 }, edge9_map),
+    #(
+      fn(x, y, z) { z > 0 && z < base - 1 && x == 0 && y == base - 1 },
+      edge10_map,
+    ),
+    #(
+      fn(x, y, z) { z > 0 && z < base - 1 && x == base - 1 && y == 0 },
+      edge11_map,
+    ),
+    #(
+      fn(x, y, z) { z > 0 && z < base - 1 && x == base - 1 && y == base - 1 },
+      edge12_map,
+    ),
+    #(
+      fn(x, y, z) { y > 0 && y < base - 1 && x == 0 && z > 0 && z < base - 1 },
+      face1_map,
+    ),
+    #(
+      fn(x, y, z) {
+        y > 0 && y < base - 1 && x == base - 1 && z > 0 && z < base - 1
+      },
+      face2_map,
+    ),
+    #(
+      fn(x, y, z) { x > 0 && x < base - 1 && y == 0 && z > 0 && z < base - 1 },
+      face3_map,
+    ),
+    #(
+      fn(x, y, z) {
+        x > 0 && x < base - 1 && y == base - 1 && z > 0 && z < base - 1
+      },
+      face4_map,
+    ),
+    #(
+      fn(x, y, z) { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == 0 },
+      face5_map,
+    ),
+    #(
+      fn(x, y, z) {
+        x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == base - 1
+      },
+      face6_map,
+    ),
+    #(
+      fn(x, y, z) {
+        x > 0 && x < base - 1 && y > 0 && y < base - 1 && z > 0 && z < base - 1
+      },
+      face6_map,
+    ),
+  ]
+}
+
+pub fn pick_mapper(
+  base: Int,
+  x: Int,
+  y: Int,
+  z: Int,
+) -> fn(Int, Int, Int, Int) -> #(Int, Int, Int) {
+  case
+    list.find(rules(base), fn(rule) {
+      let #(pred, _mapper) = rule
+      pred(x, y, z)
+    })
+  {
+    Ok(#(_, mapper)) -> mapper
+    Error(_) -> fn(_n: Int, x: Int, y: Int, z: Int) { #(x, y, z) }
+    // identity fallback
+  }
+}
+
+pub fn apply_mapping(
+  neighbor_list: List(Int),
+  actor_list: List(a),
+  default_actor: a,
+  x: Int,
+  y: Int,
+  z: Int,
+  get_actor: fn(List(a), a, Int, Int, Int) -> a,
+  base: Int,
+) -> List(a) {
+  // Pick the correct mapper based on the current x,y,z
+  let mapper = pick_mapper(base, x, y, z)
+
+  // Map each neighbor index to an actor using the mapper
+  list.map(neighbor_list, fn(n) {
+    let #(nx, ny, nz) = mapper(n, x, y, z)
+    get_actor(actor_list, default_actor, nx, ny, nz)
+  })
+}
+
+fn corner1_map(n, x, y, z) {
+  case n {
+    0 -> #(x + 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner2_map(n, x, y, z) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner3_map(n, x, y, z) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner4_map(n, x, y, z) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner5_map(n, x, y, z) {
+  case n {
+    0 -> #(x, y + 1, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner6_map(n, x, y, z) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner7_map(n, x, y, z) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn corner8_map(n, x, y, z) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge1_map(n, x, y, z) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y + 1, z)
+    3 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge2_map(n, x, y, z) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge3_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x + 1, y, z)
+    3 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge4_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x - 1, y, z)
+    3 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge5_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x + 1, y, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x, y + 1, z)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge6_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x + 1, y, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge7_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x + 1, y, z)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge8_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge9_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x + 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y, z + 1)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge10_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x + 1, y, z)
+    1 -> #(x, y - 1, z)
+    2 -> #(x, y, z + 1)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge11_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x, y, z + 1)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn edge12_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x, y - 1, z)
+    2 -> #(x, y, z + 1)
+    3 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face1_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x + 1, y, z)
+    3 -> #(x, y, z - 1)
+    4 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face2_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x, y + 1, z)
+    2 -> #(x - 1, y, z)
+    3 -> #(x, y, z - 1)
+    4 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face3_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y + 1, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x + 1, y, z)
+    3 -> #(x, y, z - 1)
+    4 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face4_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x, y - 1, z)
+    1 -> #(x - 1, y, z)
+    2 -> #(x + 1, y, z)
+    3 -> #(x, y, z - 1)
+    4 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face5_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y + 1, z)
+    4 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn face6_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y + 1, z)
+    4 -> #(x, y, z - 1)
+    _ -> #(x, y, z)
+  }
+}
+
+fn center_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+  case n {
+    0 -> #(x - 1, y, z)
+    1 -> #(x + 1, y, z)
+    2 -> #(x, y - 1, z)
+    3 -> #(x, y + 1, z)
+    4 -> #(x, y, z - 1)
+    5 -> #(x, y, z + 1)
+    _ -> #(x, y, z)
+  }
 }
