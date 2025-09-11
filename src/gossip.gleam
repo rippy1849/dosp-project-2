@@ -14,6 +14,7 @@ type Rule =
       Int,
       Int,
       Int,
+      Int,
       // predicate (x,y,z) -> true/false
     ) ->
       #(Int, Int, Int),
@@ -312,6 +313,11 @@ fn set_up_topology(
     default_actor,
     number_of_nodes,
   )
+  // let rand_x = int.random(base)
+  // let rand_y = int.random(base)
+  // let rand_z = int.random(base)
+
+  // echo rand
   // let test1 = #(1, 2, 2)
   // let test2 = #(1, 2, 2)
   // echo test1 == 
@@ -646,8 +652,8 @@ fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube)
         get_actor,
         base,
       )
-    echo #(x, y, z)
-    echo output
+    // echo #(x, y, z)
+    // echo output
     // echo actor_output
 
     // case actor_number {
@@ -865,7 +871,7 @@ pub fn rules(base) -> List(Rule) {
       fn(x, y, z) {
         x > 0 && x < base - 1 && y > 0 && y < base - 1 && z > 0 && z < base - 1
       },
-      face6_map,
+      center_map,
     ),
   ]
 }
@@ -875,7 +881,7 @@ pub fn pick_mapper(
   x: Int,
   y: Int,
   z: Int,
-) -> fn(Int, Int, Int, Int) -> #(Int, Int, Int) {
+) -> fn(Int, Int, Int, Int, Int) -> #(Int, Int, Int) {
   case
     list.find(rules(base), fn(rule) {
       let #(pred, _mapper) = rule
@@ -883,7 +889,7 @@ pub fn pick_mapper(
     })
   {
     Ok(#(_, mapper)) -> mapper
-    Error(_) -> fn(_n: Int, x: Int, y: Int, z: Int) { #(x, y, z) }
+    Error(_) -> fn(_n: Int, x: Int, y: Int, z: Int, base: Int) { #(x, y, z) }
     // identity fallback
   }
 }
@@ -903,270 +909,358 @@ pub fn apply_mapping(
 
   // Map each neighbor index to an actor using the mapper
   list.map(neighbor_list, fn(n) {
-    let #(nx, ny, nz) = mapper(n, x, y, z)
+    let #(nx, ny, nz) = mapper(n, x, y, z, base)
     get_actor(actor_list, default_actor, nx, ny, nz)
   })
 }
 
-fn corner1_map(n, x, y, z) {
+fn corner1_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x + 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner2_map(n, x, y, z) {
+fn corner2_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner3_map(n, x, y, z) {
+fn corner3_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner4_map(n, x, y, z) {
+fn corner4_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x - 1, y, z)
     2 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner5_map(n, x, y, z) {
+fn corner5_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y + 1, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner6_map(n, x, y, z) {
+fn corner6_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner7_map(n, x, y, z) {
+fn corner7_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn corner8_map(n, x, y, z) {
+fn corner8_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x - 1, y, z)
     2 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge1_map(n, x, y, z) {
+// ---------- Edge Maps ----------
+fn edge1_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y + 1, z)
     3 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge2_map(n, x, y, z) {
+fn edge2_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y - 1, z)
     3 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge3_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge3_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x, y + 1, z)
     2 -> #(x + 1, y, z)
     3 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge4_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge4_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x, y + 1, z)
     2 -> #(x - 1, y, z)
     3 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge5_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge5_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x + 1, y, z)
     1 -> #(x - 1, y, z)
     2 -> #(x, y + 1, z)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge6_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge6_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x + 1, y, z)
     1 -> #(x - 1, y, z)
     2 -> #(x, y - 1, z)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge7_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge7_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x, y + 1, z)
     2 -> #(x + 1, y, z)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge8_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge8_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y - 1, z)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge9_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge9_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x + 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y, z + 1)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge10_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+// ---------- Edge Maps (continued) ----------
+fn edge10_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x + 1, y, z)
     1 -> #(x, y - 1, z)
     2 -> #(x, y, z + 1)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge11_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge11_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x, y + 1, z)
     2 -> #(x, y, z + 1)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn edge12_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn edge12_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x, y - 1, z)
     2 -> #(x, y, z + 1)
     3 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face1_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+// ---------- Face Maps ----------
+fn face1_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x, y + 1, z)
     2 -> #(x + 1, y, z)
     3 -> #(x, y, z - 1)
     4 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face2_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn face2_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x, y + 1, z)
     2 -> #(x - 1, y, z)
     3 -> #(x, y, z - 1)
     4 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face3_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn face3_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y + 1, z)
     1 -> #(x - 1, y, z)
     2 -> #(x + 1, y, z)
     3 -> #(x, y, z - 1)
     4 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face4_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn face4_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x, y - 1, z)
     1 -> #(x - 1, y, z)
     2 -> #(x + 1, y, z)
     3 -> #(x, y, z - 1)
     4 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face5_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn face5_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y - 1, z)
     3 -> #(x, y + 1, z)
     4 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn face6_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+fn face6_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x + 1, y, z)
     2 -> #(x, y - 1, z)
     3 -> #(x, y + 1, z)
     4 -> #(x, y, z - 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
 
-fn center_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
+// ---------- Center Map ----------
+fn center_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
+  let rand_x = int.random(base)
+  let rand_y = int.random(base)
+  let rand_z = int.random(base)
+
+  echo rand_x
+
   case n {
     0 -> #(x - 1, y, z)
     1 -> #(x + 1, y, z)
@@ -1174,6 +1268,6 @@ fn center_map(n: Int, x: Int, y: Int, z: Int) -> #(Int, Int, Int) {
     3 -> #(x, y + 1, z)
     4 -> #(x, y, z - 1)
     5 -> #(x, y, z + 1)
-    _ -> #(x, y, z)
+    _ -> #(rand_x, rand_y, rand_z)
   }
 }
