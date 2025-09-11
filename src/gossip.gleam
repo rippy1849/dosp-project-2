@@ -32,13 +32,16 @@ pub type State {
       String,
       List(#(Int, process.Subject(Message), Int, Int, Int)),
     ),
-    stack: List(String),
+    stack: List(Int),
   )
 }
 
 // ----- Messages the actor understands -----
 pub type Message {
   Shutdown
+  StepGossip
+  SendRumor
+  InternalStateGossip(State)
   SetInternal(
     #(
       Float,
@@ -49,9 +52,9 @@ pub type Message {
       List(#(Int, process.Subject(Message), Int, Int, Int)),
     ),
   )
-  // GetInternal(process.Subject(Int))
-  Push(String)
-  Pop(process.Subject(Result(String, Nil)))
+  GetInternalGossip(process.Subject(Message))
+  // Push(String)
+  PopGossip(process.Subject(Result(Int, Nil)))
 }
 
 // ----- Message handler -----
@@ -62,17 +65,105 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
     SetInternal(#(v1, v2, v3, v4, v5, v6)) -> {
       actor.continue(State(#(v1, v2, v3, v4, v5, v6), state.stack))
     }
+    StepGossip -> {
+      let #(s, w, rumors, topology, algorithm, neighbor_list) = state.internal
 
-    // GetInternal(client) -> {
-    //   process.send(client, state.internal)
-    //   actor.continue(state)
-    // }
-    Push(value) -> {
-      echo value
-      actor.continue(State(state.internal, [value, ..state.stack]))
+      let neighbor_list_length = list.length(neighbor_list)
+      // let neighbor_list_length = neighbor_list_length - 1
+
+      let random_index = int.random(neighbor_list_length)
+
+      let assert Ok(default_actor) =
+        actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
+        |> actor.on_message(handle_message)
+        |> actor.start
+
+      let default_placeholder = #(0, default_actor.data, 0, 0, 0)
+
+      let result = nth_actor(neighbor_list, random_index)
+
+      let #(v1, random_neighbor, v2, v3, v4) = case result {
+        Ok(result) -> result
+        Error(_) -> default_placeholder
+      }
+
+      case rumors > 0 && rumors < 10 {
+        True -> process.send(random_neighbor, SendRumor)
+        False -> Nil
+      }
+
+      process.send(default_actor.data, Shutdown)
+      actor.continue(State(state.internal, state.stack))
+    }
+    SendRumor -> {
+      let #(s, w, rumors, topology, algorithm, neighbor_list) = state.internal
+
+      let new_rumor_count = rumors + 1
+
+      let new_state = #(
+        s,
+        w,
+        new_rumor_count,
+        topology,
+        algorithm,
+        neighbor_list,
+      )
+
+      actor.continue(State(new_state, state.stack))
+    }
+    GetInternalGossip(client) -> {
+      // let #(s, w, rumors, topology, algorithm, neighbor_list) = state.internal
+
+      process.send(client, InternalStateGossip(State(state.internal, [])))
+      actor.continue(state)
     }
 
-    Pop(client) ->
+    // Push(value) -> {
+    //   // echo state.internal
+    //   actor.continue(State(state.internal, [value, ..state.stack]))
+    // }
+    InternalStateGossip(sent_state) -> {
+      // echo state
+      let #(s, w, rumors, topology, algorithm, neighbor_list) =
+        sent_state.internal
+
+      //todo ADD TOTAL ACTORS 
+      //todo Also need a way to capture initial timestamp. Put in the state
+      let total_actors = 27
+
+      echo rumors
+
+      let total_rumors = [rumors, ..state.stack]
+
+      let total_rumors_length = list.length(total_rumors)
+
+      case total_rumors_length == total_actors {
+        True -> {
+          io.println("Full List")
+          let check = case list.all(total_rumors, fn(x) { x > 0 }) {
+            True -> 1
+            False -> 0
+          }
+
+          case check == 1 {
+            True -> {
+              //Done, All rumors heard
+              io.println("Done")
+              actor.continue(State(state.internal, []))
+            }
+            False -> {
+              //Not all rumors heard, try again
+              actor.continue(State(state.internal, []))
+            }
+          }
+        }
+        //Continue accumulating actor states
+        False -> actor.continue(State(state.internal, total_rumors))
+      }
+      // actor.continue(State(state.internal, total_rumors))
+    }
+
+    PopGossip(client) ->
       case state.stack {
         [] -> {
           process.send(client, Error(Nil))
@@ -100,6 +191,9 @@ pub fn main() {
 
 fn handle_args(args) {
   io.println("Hello from rippy!")
+
+  let initial_s = 1.0
+  let initial_w = 1.0
 
   //Grab the first two input parameters, default to 0 if not present
   let number_of_nodes = case nth(args, 0) {
@@ -174,14 +268,21 @@ fn handle_args(args) {
   // echo task
 
   let assert Ok(default_actor) =
-    actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
+    actor.new(State(#(initial_s, initial_w, 0, topology, algorithm, []), []))
+    |> actor.on_message(handle_message)
+    |> actor.start
+
+  let assert Ok(central_actor) =
+    actor.new(State(#(initial_s, initial_w, 0, topology, algorithm, []), []))
     |> actor.on_message(handle_message)
     |> actor.start
 
   let line_or_full_actor_list =
     list.map(task, fn(n) {
       let assert Ok(started) =
-        actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
+        actor.new(
+          State(#(initial_s, initial_w, 0, topology, algorithm, []), []),
+        )
         |> actor.on_message(handle_message)
         |> actor.start
 
@@ -204,7 +305,7 @@ fn handle_args(args) {
 
   // echo mapping
 
-  let three_d = cube_coords(base, topology, algorithm)
+  let three_d = cube_coords(base, topology, algorithm, initial_s, initial_w)
   // echo three_d
   // echo line_or_full_actor_list
 
@@ -229,21 +330,58 @@ fn handle_args(args) {
     topology,
     algorithm,
     default_placeholder,
+    initial_s,
+    initial_w,
   )
 
   process.sleep(2000)
 
-  // list.each(actor_list, fn(actor_tuple) {
-  //   let #(actor_number, actor, x, y, z) = actor_tuple
+  let result = nth_actor(actor_list, 0)
 
-  //   process.send(actor, Push("Alice"))
-  // })
+  let #(v1, initial_actor, v2, v3, v4) = case result {
+    Ok(result) -> result
+    Error(_) -> default_placeholder
+  }
+
+  //Start With one actor, actor 0
+  process.send(initial_actor, SendRumor)
+
+  step_actors_gossip(actor_list, central_actor.data, 1)
+
+  // echo list.length(actor_list)
+  // echo nth_actor(actor_list, list.length(actor_list))
+
   // echo task
   // let assert Ok(started) =
   //   actor.new(State(0, []))
   //   |> actor.on_message(handle_message)
   //   |> actor.start
   process.sleep(5000)
+}
+
+fn step_actors_gossip(actor_list, central_actor, step) {
+  process.sleep(1000)
+  case step % 5 == 0 {
+    True -> {
+      get_internal_gossip(actor_list, central_actor)
+      step_actors_gossip(actor_list, central_actor, step + 1)
+    }
+    False -> {
+      list.each(actor_list, fn(actor_tuple) {
+        let #(v1, actor, v2, v3, v4) = actor_tuple
+        process.send(actor, StepGossip)
+      })
+
+      step_actors_gossip(actor_list, central_actor, step + 1)
+    }
+  }
+}
+
+fn get_internal_gossip(actor_list, central_actor) {
+  list.each(actor_list, fn(actor_tuple) {
+    let #(v1, actor, v2, v3, v4) = actor_tuple
+    process.send(actor, GetInternalGossip(central_actor))
+  })
 }
 
 fn nth(xs: List(String), i: Int) -> Result(String, Nil) {
@@ -300,6 +438,8 @@ fn set_up_topology(
   topology,
   algorithm,
   default_actor,
+  initial_s,
+  initial_w,
 ) {
   // echo 1
   // case topology {
@@ -310,15 +450,76 @@ fn set_up_topology(
   //   _ -> "full"
   // }
 
-  // set_up_full_topology(actor_list, topology, algorithm, default_actor)
-  // set_up_line_topology(actor_list, topology, algorithm, default_actor)
-  set_up_three_d_topology(
-    actor_list,
-    topology,
-    algorithm,
-    default_actor,
-    number_of_nodes,
-  )
+  case topology {
+    "full" ->
+      set_up_full_topology(
+        actor_list,
+        topology,
+        algorithm,
+        default_actor,
+        initial_s,
+        initial_w,
+      )
+    "3D" ->
+      set_up_three_d_topology(
+        actor_list,
+        topology,
+        algorithm,
+        default_actor,
+        number_of_nodes,
+        initial_s,
+        initial_w,
+      )
+    "line" ->
+      set_up_line_topology(
+        actor_list,
+        topology,
+        algorithm,
+        default_actor,
+        initial_s,
+        initial_w,
+      )
+    "imp3D" ->
+      set_up_three_d_imperfect_topology(
+        actor_list,
+        topology,
+        algorithm,
+        default_actor,
+        number_of_nodes,
+        initial_s,
+        initial_w,
+      )
+    _ ->
+      set_up_full_topology(
+        actor_list,
+        topology,
+        algorithm,
+        default_actor,
+        initial_s,
+        initial_w,
+      )
+  }
+  // set_up_full_topology(actor_list, topology, algorithm, default_actor, initial_s, initial_w)
+  // set_up_line_topology(actor_list, topology, algorithm, default_actor, initial_s, initial_w)
+  // set_up_three_d_topology(
+  //   actor_list,
+  //   topology,
+  //   algorithm,
+  //   default_actor,
+  //   number_of_nodes,
+  //   initial_s,
+  //   initial_w,
+  // )
+
+  // set_up_three_d_imperfect_topology(
+  //   actor_list,
+  //   topology,
+  //   algorithm,
+  //   default_actor,
+  //   number_of_nodes,
+  //   initial_s,
+  //   initial_w,
+  // )
   // let rand_x = int.random(base)
   // let rand_y = int.random(base)
   // let rand_z = int.random(base)
@@ -332,7 +533,14 @@ fn set_up_topology(
   // echo result
 }
 
-fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
+fn set_up_full_topology(
+  actor_list,
+  topology,
+  algorithm,
+  default_actor,
+  initial_s,
+  initial_w,
+) {
   // echo actor_list
 
   list.each(actor_list, fn(actor_tuple) {
@@ -378,7 +586,14 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
     // echo neighbor_list
     //Set the internal state with updated topology neighbors
 
-    let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
+    let internal_state = #(
+      initial_s,
+      initial_w,
+      0,
+      topology,
+      algorithm,
+      neighbor_list,
+    )
     process.send(actor, SetInternal(internal_state))
     //   let index = case actor 
 
@@ -400,7 +615,14 @@ fn set_up_full_topology(actor_list, topology, algorithm, default_actor) {
   })
 }
 
-fn set_up_line_topology(actor_list, topology, algorithm, default_actor) {
+fn set_up_line_topology(
+  actor_list,
+  topology,
+  algorithm,
+  default_actor,
+  initial_s,
+  initial_w,
+) {
   // echo actor_list
 
   list.each(actor_list, fn(actor_tuple) {
@@ -469,12 +691,27 @@ fn set_up_line_topology(actor_list, topology, algorithm, default_actor) {
     // echo neighbor_list
     //Set the internal state with updated topology neighbors
 
-    let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
+    let internal_state = #(
+      initial_s,
+      initial_w,
+      0,
+      topology,
+      algorithm,
+      neighbor_list,
+    )
     process.send(actor, SetInternal(internal_state))
   })
 }
 
-fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube) {
+fn set_up_three_d_topology(
+  actor_list,
+  topology,
+  algorithm,
+  default_actor,
+  cube,
+  initial_s,
+  initial_w,
+) {
   // echo actor_list
 
   // let cubed_root = case
@@ -658,8 +895,10 @@ fn set_up_three_d_topology(actor_list, topology, algorithm, default_actor, cube)
         get_actor,
         base,
       )
+    // echo #(x, y, z)
+    // echo output
 
-    let internal_state = #(0.0, 0.0, 0, topology, algorithm, output)
+    let internal_state = #(initial_s, initial_w, 0, topology, algorithm, output)
     process.send(actor, SetInternal(internal_state))
     // output
     // echo #(x, y, z)
@@ -753,6 +992,8 @@ fn set_up_three_d_imperfect_topology(
   algorithm,
   default_actor,
   cube,
+  initial_s,
+  initial_w,
 ) {
   // echo actor_list
 
@@ -881,7 +1122,7 @@ fn set_up_three_d_imperfect_topology(
         base,
       )
 
-    let internal_state = #(0.0, 0.0, 0, topology, algorithm, output)
+    let internal_state = #(initial_s, initial_w, 0, topology, algorithm, output)
     process.send(actor, SetInternal(internal_state))
   })
 }
@@ -908,13 +1149,17 @@ pub fn cube_coords(
   n: Int,
   topology,
   algorithm,
+  initial_s,
+  initial_w,
 ) -> List(#(Int, process.Subject(Message), Int, Int, Int)) {
   let count = 0
   list.flat_map(list.range(0, n - 1), fn(z) {
     list.flat_map(list.range(0, n - 1), fn(y) {
       list.map(list.range(0, n - 1), fn(x) {
         let assert Ok(started) =
-          actor.new(State(#(0.0, 0.0, 0, topology, algorithm, []), []))
+          actor.new(
+            State(#(initial_s, initial_w, 0, topology, algorithm, []), []),
+          )
           |> actor.on_message(handle_message)
           |> actor.start
 
