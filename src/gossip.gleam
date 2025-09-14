@@ -892,8 +892,16 @@ fn handle_args(args) {
   //   process.send(default_actor.data, GetInternalPushSum(central_actor.data))
 
   process.sleep(2000)
+
+  case algorithm {
+    "gossip" ->
+      start_gossip(actor_list, central_actor.data, default_placeholder)
+    "push-sum" ->
+      start_pushsum(actor_list, central_actor.data, default_placeholder)
+    _ -> start_pushsum(actor_list, central_actor.data, default_placeholder)
+  }
   // start_gossip(actor_list, central_actor.data, default_placeholder)
-  start_pushsum(actor_list, central_actor.data, default_placeholder)
+  // start_pushsum(actor_list, central_actor.data, default_placeholder)
 
   // let result = nth_actor(actor_list, 0)
 
