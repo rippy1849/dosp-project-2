@@ -34,17 +34,30 @@ pub type State {
       List(#(Int, process.Subject(Message), Int, Int, Int)),
       Int,
       Float,
+      Int,
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
+      List(Int),
+      List(Int),
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
     ),
     stack: List(Int),
+    ratio_stack: List(Float),
+    prev_ratio_stack: List(#(Int, Float)),
   )
 }
 
 // ----- Messages the actor understands -----
 pub type Message {
   Shutdown
+  Terminated(Int)
+  UpdateTerminated(List(Int))
+
   StepGossip
+  StepPushSum(process.Subject(Message))
   SendRumor
+  SendPushSum(Float, Float)
   InternalStateGossip(State)
+  InternalStatePushSum(State, process.Subject(Message))
   SetInternal(
     #(
       Float,
@@ -55,9 +68,15 @@ pub type Message {
       List(#(Int, process.Subject(Message), Int, Int, Int)),
       Int,
       Float,
+      Int,
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
+      List(Int),
+      List(Int),
+      List(#(Int, process.Subject(Message), Int, Int, Int)),
     ),
   )
   GetInternalGossip(process.Subject(Message))
+  GetInternalPushSum(process.Subject(Message))
   // Push(String)
   // PopGossip(process.Subject(Result(Int, Nil)))
 }
@@ -66,9 +85,141 @@ pub type Message {
 fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
   case msg {
     Shutdown -> actor.stop()
+    Terminated(terminated_actor) -> {
+      let #(
+        s,
+        w,
+        rumors,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      ) = state.internal
 
-    SetInternal(#(v1, v2, v3, v4, v5, v6, v7, v8)) -> {
-      actor.continue(State(#(v1, v2, v3, v4, v5, v6, v7, v8), state.stack))
+      let new_terminated = case
+        //todo not finding terminated actor for some reason in comparison
+        list.find(terminated_list, fn(k) { k == terminated_actor })
+      {
+        Ok(_) -> {
+          terminated_list
+        }
+        // prints "8"
+        Error(_) -> {
+          [terminated_actor, ..terminated_list]
+        }
+      }
+
+      // echo new_terminated
+      let new_state = #(
+        s,
+        w,
+        rumors,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        new_terminated,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      )
+
+      // echo new_terminated
+
+      // io.println("Terminated: " <> int.to_string(terminated_actor))
+
+      list.each(all_actors, fn(actor_tuple) {
+        let #(_, actor, _, _, _) = actor_tuple
+        process.send(actor, UpdateTerminated(new_terminated))
+      })
+
+      actor.continue(State(
+        new_state,
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
+    }
+
+    UpdateTerminated(terminated_actor_list) -> {
+      let #(
+        s,
+        w,
+        rumors,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      ) = state.internal
+
+      // let new_terminated = case
+      //   //todo not finding terminated actor for some reason in comparison
+      //   list.find(terminated_list, fn(k) { k == terminated_actor })
+      // {
+      //   Ok(_) -> {
+      //     terminated_list
+      //   }
+      //   // prints "8"
+      //   Error(_) -> {
+      //     [terminated_actor, ..terminated_list]
+      //   }
+      // }
+      // echo terminated_actor_list
+      //todo comparison
+      // let neighbor_ids = extract_ids(neighbor_list)
+      // let terminated_neighbors = intersect(neighbor_ids, terminated_actor_list)
+      // let not_term_neighbors =
+      //   filter_not_in(neighbor_list, terminated_neighbors)
+
+      // let new_terminated = [terminated_actor, ..terminated_list]
+
+      //todo update terminated neighbor list here
+
+      //Todo not-term-neighbors is last entry, now neighbor list
+      let new_state = #(
+        s,
+        w,
+        rumors,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_actor_list,
+        terminated_neighbor_list,
+        neighbor_list,
+      )
+
+      actor.continue(State(
+        new_state,
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
+    }
+    SetInternal(#(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13)) -> {
+      actor.continue(State(
+        #(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13),
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
     }
     StepGossip -> {
       let #(
@@ -80,21 +231,33 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         neighbor_list,
         number_of_nodes,
         initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
       ) = state.internal
 
-      let neighbor_list_length = list.length(neighbor_list)
+      let neighbor_list_length = list.length(not_terminated_neighbors)
       // let neighbor_list_length = neighbor_list_length - 1
 
       let random_index = int.random(neighbor_list_length)
 
       let assert Ok(default_actor) =
-        actor.new(State(#(0.0, 0.0, 0, topology, algorithm, [], 0, 0.0), []))
+        actor.new(
+          State(
+            #(0.0, 0.0, 0, topology, algorithm, [], 0, 0.0, -1, [], [], [], []),
+            [],
+            [],
+            [],
+          ),
+        )
         |> actor.on_message(handle_message)
         |> actor.start
 
       let default_placeholder = #(0, default_actor.data, 0, 0, 0)
 
-      let result = nth_actor(neighbor_list, random_index)
+      let result = nth_actor(not_terminated_neighbors, random_index)
 
       let #(v1, random_neighbor, v2, v3, v4) = case result {
         Ok(result) -> result
@@ -107,7 +270,195 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
       }
 
       process.send(default_actor.data, Shutdown)
-      actor.continue(State(state.internal, state.stack))
+      actor.continue(State(
+        state.internal,
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
+    }
+    StepPushSum(client) -> {
+      let #(
+        s,
+        w,
+        can_send,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      ) = state.internal
+
+      let ratio = s /. w
+
+      let new_s = s /. 2.0
+      let new_w = w /. 2.0
+
+      let new_ratio = [ratio, ..state.ratio_stack]
+
+      let ratio_stack_length = list.length(new_ratio)
+      // echo not_terminated_neighbors
+
+      let id_list = extract_ids(not_terminated_neighbors)
+      let terminated_ids = intersect(id_list, terminated_list)
+      let not_term_neighbors =
+        filter_not_in(not_terminated_neighbors, terminated_ids)
+
+      let send_list_length = list.length(not_term_neighbors)
+
+      // echo not_term_neighbors
+      // echo terminated_list
+      let terminated_list_length = list.length(terminated_list)
+
+      case terminated_list_length == number_of_nodes {
+        True -> {
+          let later = timestamp.system_time()
+
+          let time_later_ms = timestamp.to_unix_seconds(later)
+          // echo time_later_ms -. initial_time
+          let new_time = time_later_ms -. initial_time
+
+          io.println("Done: " <> float.to_string(new_time))
+        }
+        False -> {
+          Nil
+        }
+      }
+      // echo terminated_list_length
+
+      // let assert Ok(default_actor) =
+      //   actor.new(State(state.internal, [], [], []))
+      //   |> actor.on_message(handle_message)
+      //   |> actor.start
+
+      // let default_actor = create_default_actor()
+      // let default_placeholder = #(0, default_actor, 0, 0, 0)
+
+      // let help = case send_list_length > 0 {
+      //   True -> {
+      //     io.println("Can Send")
+      //   }
+      //   False -> {
+      //     Nil
+      //   }
+      // }
+
+      // let default_actor = create_default_actor()
+      let default_placeholder = #(0, client, 0, 0, 0)
+      case send_list_length > 0 {
+        True -> {
+          let random_index = int.random(send_list_length)
+
+          let result = nth_actor(not_term_neighbors, random_index)
+
+          let neighbor_tuple = case result {
+            Ok(result) -> result
+            Error(_) -> default_placeholder
+          }
+
+          // echo neighbor_tuple == default_placeholder
+
+          let #(_, random_neighbor, _, _, _) = neighbor_tuple
+          process.send(random_neighbor, SendPushSum(new_s, new_w))
+          // process.send(default_actor, Shutdown)
+        }
+
+        False -> {
+          Nil
+        }
+      }
+
+      // echo terminated_ids
+      // echo list.length(not_term_neighbors)
+
+      let new_state = #(
+        new_s,
+        new_w,
+        can_send,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_term_neighbors,
+      )
+
+      let continue1 = case ratio_stack_length == 2 {
+        True -> {
+          //Check to see if ratio changed by less than 10^-10
+
+          // let [ratio1, ratio2, ..rest] = new_ratio
+
+          let continue2 = case new_ratio {
+            [a, b] -> {
+              let diff = b -. a
+
+              case diff <. 0.0000000001 {
+                True -> {
+                  //Actor terminated, send and update central actor
+                  process.send(client, Terminated(actor_id))
+                }
+                False -> {
+                  Nil
+                }
+              }
+
+              //Reset ratio stack
+              actor.continue(State(
+                new_state,
+                state.stack,
+                [],
+                state.prev_ratio_stack,
+              ))
+            }
+
+            _ -> {
+              actor.continue(State(
+                new_state,
+                state.stack,
+                [],
+                state.prev_ratio_stack,
+              ))
+            }
+          }
+
+          continue2
+        }
+
+        False -> {
+          actor.continue(State(
+            new_state,
+            state.stack,
+            new_ratio,
+            state.prev_ratio_stack,
+          ))
+        }
+      }
+
+      // let assert Ok(default_actor) =
+      //   actor.new(State(state.internal, [], [], []))
+      //   |> actor.on_message(handle_message)
+      //   |> actor.start
+
+      continue1
+      // process.send(client, SendRatio(actor_id, ratio))
+      // echo 1
+
+      // actor.continue(State(
+      //   state.internal,
+      //   state.stack,
+      //   new_ratio,
+      //   state.prev_ratio_stack,
+      // ))
     }
     SendRumor -> {
       let #(
@@ -119,6 +470,11 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         neighbor_list,
         number_of_nodes,
         initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
       ) = state.internal
 
       let new_rumor_count = rumors + 1
@@ -132,23 +488,87 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         neighbor_list,
         number_of_nodes,
         initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
       )
 
-      actor.continue(State(new_state, state.stack))
+      actor.continue(State(
+        new_state,
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
+    }
+    SendPushSum(sent_s, sent_w) -> {
+      let #(
+        s,
+        w,
+        can_send,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      ) = state.internal
+
+      let new_can_send = 1
+      let new_s = s +. sent_s
+      let new_w = w +. sent_w
+
+      let new_state = #(
+        new_s,
+        new_w,
+        new_can_send,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      )
+
+      actor.continue(State(
+        new_state,
+        state.stack,
+        state.ratio_stack,
+        state.prev_ratio_stack,
+      ))
     }
     GetInternalGossip(client) -> {
       // let #(s, w, rumors, topology, algorithm, neighbor_list) = state.internal
 
-      process.send(client, InternalStateGossip(State(state.internal, [])))
+      process.send(
+        client,
+        InternalStateGossip(State(state.internal, [], [], [])),
+      )
+      actor.continue(state)
+    }
+    GetInternalPushSum(client) -> {
+      // let #(s, w, rumors, topology, algorithm, neighbor_list) = state.internal
+
+      process.send(
+        client,
+        InternalStatePushSum(State(state.internal, [], [], []), client),
+      )
       actor.continue(state)
     }
 
     // Push(value) -> {
-    //   // echo state.internal
     //   actor.continue(State(state.internal, [value, ..state.stack]))
     // }
     InternalStateGossip(sent_state) -> {
-      // echo state
       let #(
         s,
         w,
@@ -158,13 +578,14 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         neighbor_list,
         number_of_nodes,
         initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
       ) = sent_state.internal
 
-      //todo ADD TOTAL ACTORS 
-      //todo Also need a way to capture initial timestamp. Put in the state
       let total_actors = number_of_nodes
-
-      // echo rumors
 
       let total_rumors = [rumors, ..state.stack]
 
@@ -185,21 +606,48 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
 
               let later = timestamp.system_time()
 
+              // io.println("Hi")
               let time_later_ms = timestamp.to_unix_seconds(later)
               echo time_later_ms -. initial_time
 
-              actor.continue(State(state.internal, []))
+              actor.continue(State(state.internal, [], [], []))
             }
             False -> {
               //Not all rumors heard, try again
-              actor.continue(State(state.internal, []))
+              actor.continue(State(state.internal, [], [], []))
             }
           }
         }
         //Continue accumulating actor states
-        False -> actor.continue(State(state.internal, total_rumors))
+        False -> actor.continue(State(state.internal, total_rumors, [], []))
       }
       // actor.continue(State(state.internal, total_rumors))
+    }
+    InternalStatePushSum(sent_state, client) -> {
+      let #(
+        s,
+        w,
+        rumors,
+        topology,
+        algorithm,
+        neighbor_list,
+        number_of_nodes,
+        initial_time,
+        actor_id,
+        all_actors,
+        terminated_list,
+        terminated_neighbor_list,
+        not_terminated_neighbors,
+      ) = sent_state.internal
+
+      // let ratio_stack = [#(actor_id, ratio), ..state.ratio_stack]
+
+      // let ratio_stack_length = list.length(state.ratio_stack)
+      // let prev_ratio_stack_length = list.length(state.prev_ratio_stack)
+
+      // echo ratio_stack_length
+
+      actor.continue(state)
     }
     // PopGossip(client) ->
     //   case state.stack {
@@ -255,10 +703,6 @@ fn handle_args(args) {
     Error(_) -> 0
   }
 
-  // echo number_of_nodes
-  // echo topology
-  // echo algorithm
-
   // full, 3D, line, or imp3D default
   // let topology_number = case topology {
   //   "full" -> "full"
@@ -303,16 +747,7 @@ fn handle_args(args) {
 
   let task = list.range(0, number_of_nodes - 1)
 
-  // echo task
-
   let assert Ok(default_actor) =
-    actor.new(
-      State(#(initial_s, initial_w, 0, topology, algorithm, [], 0, 0.0), []),
-    )
-    |> actor.on_message(handle_message)
-    |> actor.start
-
-  let assert Ok(central_actor) =
     actor.new(
       State(
         #(
@@ -322,9 +757,16 @@ fn handle_args(args) {
           topology,
           algorithm,
           [],
-          number_of_nodes,
+          0,
           0.0,
+          -1,
+          [],
+          [],
+          [],
+          [],
         ),
+        [],
+        [],
         [],
       ),
     )
@@ -345,7 +787,14 @@ fn handle_args(args) {
               [],
               number_of_nodes,
               0.0,
+              n,
+              [],
+              [],
+              [],
+              [],
             ),
+            [],
+            [],
             [],
           ),
         )
@@ -360,7 +809,6 @@ fn handle_args(args) {
   // let y_list = list.range(0, cubed_root)
 
   // let coordinates = list.range(0, base - 1)
-  // echo coordinates
 
   // let mapping =
   //   list.map(coordinates, fn(z) {
@@ -368,8 +816,6 @@ fn handle_args(args) {
   //       list.map(coordinates, fn(x) { #(x, y, z) })
   //     })
   //   })
-
-  // echo mapping
 
   let now = timestamp.system_time()
   let time_now_ms = timestamp.to_unix_seconds(now)
@@ -383,9 +829,8 @@ fn handle_args(args) {
       initial_w,
       number_of_nodes,
       time_now_ms,
+      [],
     )
-  // echo three_d
-  // echo line_or_full_actor_list
 
   let actor_list = case topology {
     "full" -> line_or_full_actor_list
@@ -395,7 +840,31 @@ fn handle_args(args) {
     _ -> line_or_full_actor_list
   }
 
-  // echo actor_list
+  let assert Ok(central_actor) =
+    actor.new(
+      State(
+        #(
+          initial_s,
+          initial_w,
+          0,
+          topology,
+          algorithm,
+          [],
+          number_of_nodes,
+          0.0,
+          -2,
+          actor_list,
+          [],
+          [],
+          [],
+        ),
+        [],
+        [],
+        [],
+      ),
+    )
+    |> actor.on_message(handle_message)
+    |> actor.start
 
   // let coordinate_mapping = list.map(task, fn(n){
 
@@ -415,6 +884,37 @@ fn handle_args(args) {
 
   process.sleep(2000)
 
+  // process.send(default_actor.data, Shutdown)
+
+  // process.send(default_actor.data, SendPushSum(0.0, 0.0))
+
+  // let output =
+  //   process.send(default_actor.data, GetInternalPushSum(central_actor.data))
+
+  process.sleep(2000)
+  // start_gossip(actor_list, central_actor.data, default_placeholder)
+  start_pushsum(actor_list, central_actor.data, default_placeholder)
+
+  // let result = nth_actor(actor_list, 0)
+
+  // let #(v1, initial_actor, v2, v3, v4) = case result {
+  //   Ok(result) -> result
+  //   Error(_) -> default_placeholder
+  // }
+
+  // //Start With one actor, actor 0
+  // process.send(initial_actor, SendRumor)
+
+  // step_actors_gossip(actor_list, central_actor.data, 1)
+
+  // let assert Ok(started) =
+  //   actor.new(State(0, []))
+  //   |> actor.on_message(handle_message)
+  //   |> actor.start
+  process.sleep(5000)
+}
+
+fn start_gossip(actor_list, central_actor, default_placeholder) {
   let result = nth_actor(actor_list, 0)
 
   let #(v1, initial_actor, v2, v3, v4) = case result {
@@ -425,17 +925,23 @@ fn handle_args(args) {
   //Start With one actor, actor 0
   process.send(initial_actor, SendRumor)
 
-  step_actors_gossip(actor_list, central_actor.data, 1)
+  step_actors_gossip(actor_list, central_actor, 1)
+}
 
-  // echo list.length(actor_list)
-  // echo nth_actor(actor_list, list.length(actor_list))
+//TODO Need to create a separate message that is a start message
 
-  // echo task
-  // let assert Ok(started) =
-  //   actor.new(State(0, []))
-  //   |> actor.on_message(handle_message)
-  //   |> actor.start
-  process.sleep(5000)
+fn start_pushsum(actor_list, central_actor, default_placeholder) {
+  let result = nth_actor(actor_list, 0)
+
+  let #(v1, initial_actor, v2, v3, v4) = case result {
+    Ok(result) -> result
+    Error(_) -> default_placeholder
+  }
+
+  //todo Start With one actor, actor 0
+  process.send(initial_actor, SendPushSum(1.0, 1.0))
+
+  step_actors_pushsum(actor_list, central_actor, 1)
 }
 
 fn step_actors_gossip(actor_list, central_actor, step) {
@@ -456,11 +962,99 @@ fn step_actors_gossip(actor_list, central_actor, step) {
   }
 }
 
+fn step_actors_pushsum(actor_list, central_actor, step) {
+  // process.sleep(100)
+  case step % 5 == 0 {
+    True -> {
+      get_internal_pushsum(actor_list, central_actor)
+      step_actors_pushsum(actor_list, central_actor, step + 1)
+    }
+    False -> {
+      list.each(actor_list, fn(actor_tuple) {
+        let #(v1, actor, v2, v3, v4) = actor_tuple
+        process.send(actor, StepPushSum(central_actor))
+      })
+
+      step_actors_pushsum(actor_list, central_actor, step + 1)
+    }
+  }
+}
+
 fn get_internal_gossip(actor_list, central_actor) {
   list.each(actor_list, fn(actor_tuple) {
     let #(v1, actor, v2, v3, v4) = actor_tuple
     process.send(actor, GetInternalGossip(central_actor))
   })
+}
+
+fn get_internal_pushsum(actor_list, central_actor) {
+  list.each(actor_list, fn(actor_tuple) {
+    let #(v1, actor, v2, v3, v4) = actor_tuple
+    process.send(actor, GetInternalPushSum(central_actor))
+  })
+}
+
+pub fn extract_ids(
+  inputs: List(#(Int, process.Subject(Message), Int, Int, Int)),
+) -> List(Int) {
+  list.map(inputs, fn(tuple) {
+    let #(id, _subject, _x, _y, _z) = tuple
+    id
+  })
+}
+
+pub fn intersect(a: List(Int), b: List(Int)) -> List(Int) {
+  list.filter(a, fn(x) { list.contains(b, x) })
+}
+
+fn create_default_actor() {
+  let assert Ok(default_actor) =
+    actor.new(
+      State(
+        #(0.0, 0.0, 0, "default", "default", [], 0, 0.0, -1, [], [], [], []),
+        [],
+        [],
+        [],
+      ),
+    )
+    |> actor.on_message(handle_message)
+    |> actor.start
+
+  default_actor.data
+}
+
+pub fn filter_not_in(
+  a: List(#(Int, process.Subject(Message), Int, Int, Int)),
+  b: List(Int),
+) -> List(#(Int, process.Subject(Message), Int, Int, Int)) {
+  list.filter(a, fn(t) {
+    let #(id, _subject, _x, _y, _z) = t
+    case list.find(b, fn(bv) { bv == id }) {
+      Ok(_) -> False
+      // id is in b → filter out
+      Error(_) -> True
+      // id not in b → keep
+    }
+  })
+}
+
+//todo index list
+
+pub fn first_not_in_index(a: List(Int), b: List(Int)) -> Result(Int, Nil) {
+  find_index(a, b, 0)
+}
+
+fn find_index(a: List(Int), b: List(Int), idx: Int) -> Result(Int, Nil) {
+  case a {
+    [] -> Error(Nil)
+    [x, ..rest] ->
+      case list.find(b, fn(y) { y == x }) {
+        Ok(_) -> find_index(rest, b, idx + 1)
+        // x is in b, continue
+        Error(_) -> Ok(idx)
+        // x not in b, return index
+      }
+  }
 }
 
 fn nth(xs: List(String), i: Int) -> Result(String, Nil) {
@@ -511,6 +1105,18 @@ pub fn nth_actor_coordinates(
   }
 }
 
+pub fn nth_ratio_id(xs: List(#(Int, Float)), id1: Int) -> #(Int, Float) {
+  case xs {
+    [] -> #(0, 0.0)
+
+    [#(id, ratio), ..rest] ->
+      case id1 == id {
+        True -> #(id, ratio)
+        False -> nth_ratio_id(rest, id1)
+      }
+  }
+}
+
 fn set_up_topology(
   actor_list,
   number_of_nodes,
@@ -521,7 +1127,6 @@ fn set_up_topology(
   initial_w,
   initial_time,
 ) {
-  // echo 1
   // case topology {
   //   "full" -> "full"
   //   "3D" -> "3D"
@@ -612,13 +1217,9 @@ fn set_up_topology(
   // let rand_y = int.random(base)
   // let rand_z = int.random(base)
 
-  // echo rand
   // let test1 = #(1, 2, 2)
   // let test2 = #(1, 2, 2)
-  // echo test1 == 
   // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
-
-  // echo result
 }
 
 fn set_up_full_topology(
@@ -631,21 +1232,16 @@ fn set_up_full_topology(
   number_of_nodes,
   initial_time,
 ) {
-  // echo actor_list
-
   list.each(actor_list, fn(actor_tuple) {
     // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
     // process.send(actor, SetInternal(hi))
 
     let #(actor_number, actor, x, y, z) = actor_tuple
 
-    // echo hi
-
     let neighbor_list_length = list.length(actor_list) - 1
 
     let neighbor_list = list.range(0, neighbor_list_length - 1)
 
-    // echo neighbor_list
     // let test_subject = process.new_subject(Message)
 
     // let first_actor = case nth_actor(actor_list, 0) {
@@ -669,12 +1265,11 @@ fn set_up_full_topology(
           Error(_) -> default_actor
         }
 
-        // echo filtered_actor
-
         filtered_actor
       })
-    // echo neighbor_list
     //Set the internal state with updated topology neighbors
+
+    let initial_s = int.to_float({ actor_number % 10 } + 1)
 
     let internal_state = #(
       initial_s,
@@ -685,6 +1280,11 @@ fn set_up_full_topology(
       neighbor_list,
       number_of_nodes,
       initial_time,
+      actor_number,
+      actor_list,
+      [],
+      [],
+      neighbor_list,
     )
     process.send(actor, SetInternal(internal_state))
     //   let index = case actor 
@@ -717,20 +1317,13 @@ fn set_up_line_topology(
   number_of_nodes,
   initial_time,
 ) {
-  // echo actor_list
-
   list.each(actor_list, fn(actor_tuple) {
     // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
     // process.send(actor, SetInternal(hi))
 
     let #(actor_number, actor, x, y, z) = actor_tuple
 
-    // echo hi
-
     let end_actor = list.length(actor_list) - 1
-
-    // echo actor_number
-    // echo end_actor
 
     let neighbor_list = case actor_number == 0 {
       True -> list.range(0, 0)
@@ -741,7 +1334,6 @@ fn set_up_line_topology(
         }
     }
 
-    // echo neighbor_list
     // let test_subject = process.new_subject(Message)
 
     // let first_actor = case nth_actor(actor_list, 0) {
@@ -778,12 +1370,12 @@ fn set_up_line_topology(
           Ok(arg) -> arg
           Error(_) -> default_actor
         }
-        // // echo filtered_actor
 
         filtered_actor
       })
-    // echo neighbor_list
     //Set the internal state with updated topology neighbors
+
+    let initial_s = int.to_float({ actor_number % 10 } + 1)
 
     let internal_state = #(
       initial_s,
@@ -794,6 +1386,11 @@ fn set_up_line_topology(
       neighbor_list,
       number_of_nodes,
       initial_time,
+      actor_number,
+      actor_list,
+      [],
+      [],
+      neighbor_list,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -809,24 +1406,17 @@ fn set_up_three_d_topology(
   initial_w,
   initial_time,
 ) {
-  // echo actor_list
-
   // let cubed_root = case
   //   int.power(cube, 0.3333333333333333333333333333333333333333)
   // {
   //   Ok(cubed_root) -> cubed_root
   //   Error(_) -> 0.0
   // }
-  // // echo cubed_root
   // //Round to nearest number, should be correct
   // let cubed_root = float.ceiling(cubed_root)
-  // echo cubed_root
   let base = cube_rt(cube)
 
   // let square = base * base
-  // echo base
-  // echo square
-  // echo cube
 
   // let phase1 = list.range(0, base - 1)
 
@@ -961,16 +1551,13 @@ fn set_up_three_d_topology(
     let default_actor_list =
       list.map(default_actor_list, fn(n) { default_actor })
     // let output = get_actor(actor_list, default_actor, 1, 1, 1)
-    // echo output
     // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
 
     // let result = case result {
     //   Ok(result) -> result
     //   Error(_) -> default_actor
     // }
-    // echo result
 
-    // echo neighbor_list
     // let actor_output = case { x == 0 && y == 0 && z == 0 } {
 
     // neighbor_list: List(Int),
@@ -992,8 +1579,8 @@ fn set_up_three_d_topology(
         get_actor,
         base,
       )
-    // echo #(x, y, z)
-    // echo output
+
+    let initial_s = int.to_float({ actor_number % 10 } + 1)
 
     let internal_state = #(
       initial_s,
@@ -1004,12 +1591,14 @@ fn set_up_three_d_topology(
       output,
       cube,
       initial_time,
+      actor_number,
+      actor_list,
+      [],
+      [],
+      output,
     )
     process.send(actor, SetInternal(internal_state))
     // output
-    // echo #(x, y, z)
-    // echo output
-    // echo actor_output
 
     // case actor_number {
     //   1 -> "one"
@@ -1017,12 +1606,6 @@ fn set_up_three_d_topology(
     //   base -> "something else: " <> int.to_string(n)
     // }
     // let end_actor = list.length(actor_list) - 1
-
-    // // echo actor_number
-    // // echo end_actor
-    // echo base
-    // echo square
-    // echo cube
 
     //Corner Case
     // let neighbor_list = case
@@ -1040,9 +1623,6 @@ fn set_up_three_d_topology(
     //   False -> list.range(0, 0)
     // }
 
-    // echo actor_number
-    // echo neighbor_list
-
     // let neighbor_list = case {
     //   True -> list.range(0, 4)
     //   False -> list.range(0, 0)
@@ -1057,7 +1637,6 @@ fn set_up_three_d_topology(
   //     }
   // }
 
-  // echo neighbor_list
   // let test_subject = process.new_subject(Message)
 
   // let first_actor = case nth_actor(actor_list, 0) {
@@ -1080,11 +1659,9 @@ fn set_up_three_d_topology(
   //     //   Ok(arg) -> arg
   //     //   Error(_) -> default_actor
   //     // }
-  //     // // echo filtered_actor
 
   //     // filtered_actor
   //   })
-  // echo neighbor_list
   //Set the internal state with updated topology neighbors
 
   // let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
@@ -1102,24 +1679,17 @@ fn set_up_three_d_imperfect_topology(
   initial_w,
   initial_time,
 ) {
-  // echo actor_list
-
   // let cubed_root = case
   //   int.power(cube, 0.3333333333333333333333333333333333333333)
   // {
   //   Ok(cubed_root) -> cubed_root
   //   Error(_) -> 0.0
   // }
-  // // echo cubed_root
   // //Round to nearest number, should be correct
   // let cubed_root = float.ceiling(cubed_root)
-  // echo cubed_root
   let base = cube_rt(cube)
 
   // let square = base * base
-  // echo base
-  // echo square
-  // echo cube
 
   // let phase1 = list.range(0, base - 1)
 
@@ -1197,16 +1767,13 @@ fn set_up_three_d_imperfect_topology(
     let default_actor_list =
       list.map(default_actor_list, fn(n) { default_actor })
     // let output = get_actor(actor_list, default_actor, 1, 1, 1)
-    // echo output
     // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
 
     // let result = case result {
     //   Ok(result) -> result
     //   Error(_) -> default_actor
     // }
-    // echo result
 
-    // echo neighbor_list
     // let actor_output = case { x == 0 && y == 0 && z == 0 } {
 
     // neighbor_list: List(Int),
@@ -1229,6 +1796,8 @@ fn set_up_three_d_imperfect_topology(
         base,
       )
 
+    let initial_s = int.to_float({ actor_number % 10 } + 1)
+
     let internal_state = #(
       initial_s,
       initial_w,
@@ -1238,6 +1807,11 @@ fn set_up_three_d_imperfect_topology(
       output,
       cube,
       initial_time,
+      actor_number,
+      actor_list,
+      [],
+      [],
+      output,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -1253,7 +1827,6 @@ fn cube_rt(number) {
     Ok(cubed_root) -> cubed_root
     Error(_) -> 0.0
   }
-  // echo cubed_root
   //Round to nearest number, should be correct
   let cubed_root = float.ceiling(cubed_root)
 
@@ -1269,6 +1842,7 @@ pub fn cube_coords(
   initial_w,
   number_of_nodes,
   initial_time,
+  actor_list,
 ) -> List(#(Int, process.Subject(Message), Int, Int, Int)) {
   let count = 0
   list.flat_map(list.range(0, n - 1), fn(z) {
@@ -1286,7 +1860,14 @@ pub fn cube_coords(
                 [],
                 number_of_nodes,
                 initial_time,
+                count,
+                actor_list,
+                [],
+                [],
+                [],
               ),
+              [],
+              [],
               [],
             ),
           )
@@ -1785,8 +2366,6 @@ fn center_map(n: Int, x: Int, y: Int, z: Int, base: Int) -> #(Int, Int, Int) {
   let rand_x = int.random(base)
   let rand_y = int.random(base)
   let rand_z = int.random(base)
-
-  // echo rand_x
 
   case n {
     0 -> #(x - 1, y, z)
