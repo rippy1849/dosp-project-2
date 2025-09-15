@@ -166,30 +166,6 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         not_terminated_neighbors,
       ) = state.internal
 
-      // let new_terminated = case
-      //   //todo not finding terminated actor for some reason in comparison
-      //   list.find(terminated_list, fn(k) { k == terminated_actor })
-      // {
-      //   Ok(_) -> {
-      //     terminated_list
-      //   }
-      //   // prints "8"
-      //   Error(_) -> {
-      //     [terminated_actor, ..terminated_list]
-      //   }
-      // }
-      // echo terminated_actor_list
-      //todo comparison
-      // let neighbor_ids = extract_ids(neighbor_list)
-      // let terminated_neighbors = intersect(neighbor_ids, terminated_actor_list)
-      // let not_term_neighbors =
-      //   filter_not_in(neighbor_list, terminated_neighbors)
-
-      // let new_terminated = [terminated_actor, ..terminated_list]
-
-      //todo update terminated neighbor list here
-
-      //Todo not-term-neighbors is last entry, now neighbor list
       let new_state = #(
         s,
         w,
@@ -329,24 +305,6 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
           Nil
         }
       }
-      // echo terminated_list_length
-
-      // let assert Ok(default_actor) =
-      //   actor.new(State(state.internal, [], [], []))
-      //   |> actor.on_message(handle_message)
-      //   |> actor.start
-
-      // let default_actor = create_default_actor()
-      // let default_placeholder = #(0, default_actor, 0, 0, 0)
-
-      // let help = case send_list_length > 0 {
-      //   True -> {
-      //     io.println("Can Send")
-      //   }
-      //   False -> {
-      //     Nil
-      //   }
-      // }
 
       // let default_actor = create_default_actor()
       let default_placeholder = #(0, client, 0, 0, 0)
@@ -444,21 +402,7 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         }
       }
 
-      // let assert Ok(default_actor) =
-      //   actor.new(State(state.internal, [], [], []))
-      //   |> actor.on_message(handle_message)
-      //   |> actor.start
-
       continue1
-      // process.send(client, SendRatio(actor_id, ratio))
-      // echo 1
-
-      // actor.continue(State(
-      //   state.internal,
-      //   state.stack,
-      //   new_ratio,
-      //   state.prev_ratio_stack,
-      // ))
     }
     SendRumor -> {
       let #(
@@ -640,13 +584,6 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         not_terminated_neighbors,
       ) = sent_state.internal
 
-      // let ratio_stack = [#(actor_id, ratio), ..state.ratio_stack]
-
-      // let ratio_stack_length = list.length(state.ratio_stack)
-      // let prev_ratio_stack_length = list.length(state.prev_ratio_stack)
-
-      // echo ratio_stack_length
-
       actor.continue(state)
     }
     // PopGossip(client) ->
@@ -806,17 +743,6 @@ fn handle_args(args) {
 
   let base = cube_rt(number_of_nodes)
 
-  // let y_list = list.range(0, cubed_root)
-
-  // let coordinates = list.range(0, base - 1)
-
-  // let mapping =
-  //   list.map(coordinates, fn(z) {
-  //     list.map(coordinates, fn(y) {
-  //       list.map(coordinates, fn(x) { #(x, y, z) })
-  //     })
-  //   })
-
   let now = timestamp.system_time()
   let time_now_ms = timestamp.to_unix_seconds(now)
 
@@ -866,9 +792,6 @@ fn handle_args(args) {
     |> actor.on_message(handle_message)
     |> actor.start
 
-  // let coordinate_mapping = list.map(task, fn(n){
-
-  // })
   let default_placeholder = #(0, default_actor.data, 0, 0, 0)
 
   set_up_topology(
@@ -884,13 +807,6 @@ fn handle_args(args) {
 
   process.sleep(2000)
 
-  // process.send(default_actor.data, Shutdown)
-
-  // process.send(default_actor.data, SendPushSum(0.0, 0.0))
-
-  // let output =
-  //   process.send(default_actor.data, GetInternalPushSum(central_actor.data))
-
   process.sleep(2000)
 
   case algorithm {
@@ -900,25 +816,7 @@ fn handle_args(args) {
       start_pushsum(actor_list, central_actor.data, default_placeholder)
     _ -> start_pushsum(actor_list, central_actor.data, default_placeholder)
   }
-  // start_gossip(actor_list, central_actor.data, default_placeholder)
-  // start_pushsum(actor_list, central_actor.data, default_placeholder)
 
-  // let result = nth_actor(actor_list, 0)
-
-  // let #(v1, initial_actor, v2, v3, v4) = case result {
-  //   Ok(result) -> result
-  //   Error(_) -> default_placeholder
-  // }
-
-  // //Start With one actor, actor 0
-  // process.send(initial_actor, SendRumor)
-
-  // step_actors_gossip(actor_list, central_actor.data, 1)
-
-  // let assert Ok(started) =
-  //   actor.new(State(0, []))
-  //   |> actor.on_message(handle_message)
-  //   |> actor.start
   process.sleep(5000)
 }
 
@@ -1135,14 +1033,6 @@ fn set_up_topology(
   initial_w,
   initial_time,
 ) {
-  // case topology {
-  //   "full" -> "full"
-  //   "3D" -> "3D"
-  //   "line" -> "line"
-  //   "imp3D" -> "imp3D"
-  //   _ -> "full"
-  // }
-
   case topology {
     "full" ->
       set_up_full_topology(
@@ -1200,34 +1090,6 @@ fn set_up_topology(
         initial_time,
       )
   }
-  // set_up_full_topology(actor_list, topology, algorithm, default_actor, initial_s, initial_w)
-  // set_up_line_topology(actor_list, topology, algorithm, default_actor, initial_s, initial_w)
-  // set_up_three_d_topology(
-  //   actor_list,
-  //   topology,
-  //   algorithm,
-  //   default_actor,
-  //   number_of_nodes,
-  //   initial_s,
-  //   initial_w,
-  // )
-
-  // set_up_three_d_imperfect_topology(
-  //   actor_list,
-  //   topology,
-  //   algorithm,
-  //   default_actor,
-  //   number_of_nodes,
-  //   initial_s,
-  //   initial_w,
-  // )
-  // let rand_x = int.random(base)
-  // let rand_y = int.random(base)
-  // let rand_z = int.random(base)
-
-  // let test1 = #(1, 2, 2)
-  // let test2 = #(1, 2, 2)
-  // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
 }
 
 fn set_up_full_topology(
@@ -1241,24 +1103,12 @@ fn set_up_full_topology(
   initial_time,
 ) {
   list.each(actor_list, fn(actor_tuple) {
-    // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
-    // process.send(actor, SetInternal(hi))
-
     let #(actor_number, actor, x, y, z) = actor_tuple
 
     let neighbor_list_length = list.length(actor_list) - 1
 
     let neighbor_list = list.range(0, neighbor_list_length - 1)
 
-    // let test_subject = process.new_subject(Message)
-
-    // let first_actor = case nth_actor(actor_list, 0) {
-    //   Ok(arg) -> arg
-    //   Error(_) -> default_actor
-    // }
-
-    // list.map(neighbor_list, fn(n){
-    // let offset = 0
     let neighbor_list =
       list.map(neighbor_list, fn(n) {
         let offset = case n >= actor_number {
@@ -1295,23 +1145,6 @@ fn set_up_full_topology(
       neighbor_list,
     )
     process.send(actor, SetInternal(internal_state))
-    //   let index = case actor 
-
-    // let first_actor = case nth_actor(actor_list, 0) {
-    // Ok(arg) -> arg
-    // Error(_) -> default_actor
-    // }
-
-    // })
-    // nth_actor(actor_list, 1)
-    // nth_actor()
-    // list.each(actor_list, fn(actor2) {
-
-    //   // case actor == actor2 {
-    //   //   True -> 
-    //   //   False ->
-    //   // }
-    // })
   })
 }
 
@@ -1326,9 +1159,6 @@ fn set_up_line_topology(
   initial_time,
 ) {
   list.each(actor_list, fn(actor_tuple) {
-    // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
-    // process.send(actor, SetInternal(hi))
-
     let #(actor_number, actor, x, y, z) = actor_tuple
 
     let end_actor = list.length(actor_list) - 1
@@ -1342,21 +1172,8 @@ fn set_up_line_topology(
         }
     }
 
-    // let test_subject = process.new_subject(Message)
-
-    // let first_actor = case nth_actor(actor_list, 0) {
-    //   Ok(arg) -> arg
-    //   Error(_) -> default_actor
-    // }
-
-    // list.map(neighbor_list, fn(n){
-    // let offset = 0
     let neighbor_list =
       list.map(neighbor_list, fn(n) {
-        // let offset = case n >= actor_number {
-        //   True -> 1
-        //   False -> 0
-        // }
         let offset = case actor_number == 0 {
           True -> 2
           False ->
@@ -1414,80 +1231,11 @@ fn set_up_three_d_topology(
   initial_w,
   initial_time,
 ) {
-  // let cubed_root = case
-  //   int.power(cube, 0.3333333333333333333333333333333333333333)
-  // {
-  //   Ok(cubed_root) -> cubed_root
-  //   Error(_) -> 0.0
-  // }
-  // //Round to nearest number, should be correct
-  // let cubed_root = float.ceiling(cubed_root)
   let base = cube_rt(cube)
 
-  // let square = base * base
-
-  // let phase1 = list.range(0, base - 1)
-
   list.each(actor_list, fn(actor_tuple) {
-    // let hi = #(0.0, 0.0, 0, topology, algorithm, actor_list)
-    // process.send(actor, SetInternal(hi))
-
     let #(actor_number, actor, x, y, z) = actor_tuple
-    //Corner Cases
-    // let neighbor_list = case
-    //   { x == 0 && y == 0 && z == 0 }
-    //   || { x == base - 1 && y == 0 && z == 0 }
-    //   || { x == 0 && y == base - 1 && z == 0 }
-    //   || { x == base - 1 && y == base - 1 && z == 0 }
-    //   || { x == 0 && y == 0 && z == base - 1 }
-    //   || { x == base - 1 && y == 0 && z == base - 1 }
-    //   || { x == 0 && y == base - 1 && z == base - 1 }
-    //   || { x == base - 1 && y == base - 1 && z == base - 1 }
-    // {
-    //   True -> list.range(0, 2)
-    //   False -> list.range(0, 0)
-    // }
 
-    //Edges Cases
-    // let neighbor_list = case
-    //   { x > 0 && x < base - 1 && y == 0 && z == 0 }
-    //   || { x > 0 && x < base - 1 && y == base - 1 && z == 0 }
-    //   || { y > 0 && y < base - 1 && x == 0 && z == 0 }
-    //   || { y > 0 && y < base - 1 && x == base - 1 && z == 0 }
-    //   || { x > 0 && x < base - 1 && y == 0 && z == base - 1 }
-    //   || { x > 0 && x < base - 1 && y == base - 1 && z == base - 1 }
-    //   || { y > 0 && y < base - 1 && x == 0 && z == base - 1 }
-    //   || { y > 0 && y < base - 1 && x == base - 1 && z == base - 1 }
-    //   || { z > 0 && z < base - 1 && x == 0 && y == 0 }
-    //   || { z > 0 && z < base - 1 && x == 0 && y == base - 1 }
-    //   || { z > 0 && z < base - 1 && x == base - 1 && y == 0 }
-    //   || { z > 0 && z < base - 1 && x == base - 1 && y == base - 1 }
-    // {
-    //   True -> list.range(0, 3)
-    //   False -> list.range(0, 0)
-    // }
-
-    //Face Cases
-    // let neighbor_list = case
-    //   { y > 0 && y < base - 1 && x == 0 && z > 0 && z < base - 1 }
-    //   || { y > 0 && y < base - 1 && x == base - 1 && z > 0 && z < base - 1 }
-    //   || { x > 0 && x < base - 1 && y == 0 && z > 0 && z < base - 1 }
-    //   || { x > 0 && x < base - 1 && y == base - 1 && z > 0 && z < base - 1 }
-    //   || { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == 0 }
-    //   || { x > 0 && x < base - 1 && y > 0 && y < base - 1 && z == base - 1 }
-    // {
-    //   True -> list.range(0, 4)
-    //   False -> list.range(0, 0)
-    // }
-
-    // let neighbor_list = case
-    //   {
-    //     x > 0 && x < base - 1 && y > 0 && y < base - 1 && z > 0 && z < base - 1
-    //   }
-    // {
-    //   True -> list.range(0, 5)
-    //   False -> list.range(0, 0)
-    // }
     //Corner Case first
     let neighbor_list = case
       { x == 0 && y == 0 && z == 0 }
@@ -1555,27 +1303,6 @@ fn set_up_three_d_topology(
         }
     }
 
-    let default_actor_list = list.range(0, 0)
-    let default_actor_list =
-      list.map(default_actor_list, fn(n) { default_actor })
-    // let output = get_actor(actor_list, default_actor, 1, 1, 1)
-    // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
-
-    // let result = case result {
-    //   Ok(result) -> result
-    //   Error(_) -> default_actor
-    // }
-
-    // let actor_output = case { x == 0 && y == 0 && z == 0 } {
-
-    // neighbor_list: List(Int),
-    //   actor_list: List(a),
-    //   default_actor: a,
-    //   x: Int,
-    //   y: Int,
-    //   z: Int,
-    //   get_actor: fn(List(a), a, Int, Int, Int) -> a,
-
     let output =
       apply_mapping(
         neighbor_list,
@@ -1606,75 +1333,7 @@ fn set_up_three_d_topology(
       output,
     )
     process.send(actor, SetInternal(internal_state))
-    // output
-
-    // case actor_number {
-    //   1 -> "one"
-    //   2 -> "two"
-    //   base -> "something else: " <> int.to_string(n)
-    // }
-    // let end_actor = list.length(actor_list) - 1
-
-    //Corner Case
-    // let neighbor_list = case
-    //   actor_number == 0
-    //   || actor_number == base - 1
-    //   || actor_number == square - base
-    //   || actor_number == square - 1
-    //   || actor_number == square * { base - 1 }
-    //   || actor_number == square * { base - 1 } + { base - 1 }
-    //   || actor_number == cube - base
-    //   || actor_number == cube - 1
-    // {
-    //   //Corner
-    //   True -> list.range(0, 2)
-    //   False -> list.range(0, 0)
-    // }
-
-    // let neighbor_list = case {
-    //   True -> list.range(0, 4)
-    //   False -> list.range(0, 0)
-    // }
   })
-  // let neighbor_list = case actor_number == 0 {
-  //   True -> list.range(0, 0)
-  //   False ->
-  //     case actor_number == end_actor {
-  //       True -> list.range(0, 0)
-  //       False -> list.range(0, 1)
-  //     }
-  // }
-
-  // let test_subject = process.new_subject(Message)
-
-  // let first_actor = case nth_actor(actor_list, 0) {
-  //   Ok(arg) -> arg
-  //   Error(_) -> default_actor
-  // }
-
-  // list.map(neighbor_list, fn(n){
-  // let offset = 0
-  // let neighbor_list =
-  //   list.map(neighbor_list, fn(n) {
-  //     n
-  //     // let offset = case n >= actor_number {
-  //     //   True -> 1
-  //     //   False -> 0
-  //     // }
-
-  //     // index
-  //     // let filtered_actor = case nth_actor(actor_list, index) {
-  //     //   Ok(arg) -> arg
-  //     //   Error(_) -> default_actor
-  //     // }
-
-  //     // filtered_actor
-  //   })
-  //Set the internal state with updated topology neighbors
-
-  // let internal_state = #(0.0, 0.0, 0, topology, algorithm, neighbor_list)
-  // process.send(actor, SetInternal(internal_state))
-  // })
 }
 
 fn set_up_three_d_imperfect_topology(
@@ -1687,19 +1346,7 @@ fn set_up_three_d_imperfect_topology(
   initial_w,
   initial_time,
 ) {
-  // let cubed_root = case
-  //   int.power(cube, 0.3333333333333333333333333333333333333333)
-  // {
-  //   Ok(cubed_root) -> cubed_root
-  //   Error(_) -> 0.0
-  // }
-  // //Round to nearest number, should be correct
-  // let cubed_root = float.ceiling(cubed_root)
   let base = cube_rt(cube)
-
-  // let square = base * base
-
-  // let phase1 = list.range(0, base - 1)
 
   list.each(actor_list, fn(actor_tuple) {
     let #(actor_number, actor, x, y, z) = actor_tuple
@@ -1770,27 +1417,6 @@ fn set_up_three_d_imperfect_topology(
             }
         }
     }
-
-    let default_actor_list = list.range(0, 0)
-    let default_actor_list =
-      list.map(default_actor_list, fn(n) { default_actor })
-    // let output = get_actor(actor_list, default_actor, 1, 1, 1)
-    // let result = nth_actor_coordinates(actor_list, 1, 1, 1)
-
-    // let result = case result {
-    //   Ok(result) -> result
-    //   Error(_) -> default_actor
-    // }
-
-    // let actor_output = case { x == 0 && y == 0 && z == 0 } {
-
-    // neighbor_list: List(Int),
-    //   actor_list: List(a),
-    //   default_actor: a,
-    //   x: Int,
-    //   y: Int,
-    //   z: Int,
-    //   get_actor: fn(List(a), a, Int, Int, Int) -> a,
 
     let output =
       apply_mapping(
