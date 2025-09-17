@@ -39,6 +39,8 @@ pub type State {
       List(Int),
       List(Int),
       List(#(Int, process.Subject(Message), Int, Int, Int)),
+      Float,
+      Float,
     ),
     stack: List(Int),
     ratio_stack: List(Float),
@@ -73,6 +75,8 @@ pub type Message {
       List(Int),
       List(Int),
       List(#(Int, process.Subject(Message), Int, Int, Int)),
+      Float,
+      Float,
     ),
   )
   GetInternalGossip(process.Subject(Message))
@@ -100,6 +104,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
       let new_terminated = case
@@ -130,6 +136,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         new_terminated,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       )
 
       // echo new_terminated
@@ -164,6 +172,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
       let new_state = #(
@@ -180,6 +190,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_actor_list,
         terminated_neighbor_list,
         neighbor_list,
+        start_s,
+        start_w,
       )
 
       actor.continue(State(
@@ -189,9 +201,25 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         state.prev_ratio_stack,
       ))
     }
-    SetInternal(#(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13)) -> {
+    SetInternal(#(
+      v1,
+      v2,
+      v3,
+      v4,
+      v5,
+      v6,
+      v7,
+      v8,
+      v9,
+      v10,
+      v11,
+      v12,
+      v13,
+      v14,
+      v15,
+    )) -> {
       actor.continue(State(
-        #(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13),
+        #(v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15),
         state.stack,
         state.ratio_stack,
         state.prev_ratio_stack,
@@ -212,6 +240,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
       let neighbor_list_length = list.length(not_terminated_neighbors)
@@ -222,7 +252,23 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
       let assert Ok(default_actor) =
         actor.new(
           State(
-            #(0.0, 0.0, 0, topology, algorithm, [], 0, 0.0, -1, [], [], [], []),
+            #(
+              0.0,
+              0.0,
+              0,
+              topology,
+              algorithm,
+              [],
+              0,
+              0.0,
+              -1,
+              [],
+              [],
+              [],
+              [],
+              0.0,
+              0.0,
+            ),
             [],
             [],
             [],
@@ -268,10 +314,14 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
+      // echo can_send
       let ratio = s /. w
-
+      // echo start_s == s
+      // echo start_s
       let new_s = s /. 2.0
       let new_w = w /. 2.0
 
@@ -308,7 +358,7 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
 
       // let default_actor = create_default_actor()
       let default_placeholder = #(0, client, 0, 0, 0)
-      case send_list_length > 0 {
+      let #(step_s, step_w) = case send_list_length > 0 {
         True -> {
           let random_index = int.random(send_list_length)
 
@@ -322,12 +372,22 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
           // echo neighbor_tuple == default_placeholder
 
           let #(_, random_neighbor, _, _, _) = neighbor_tuple
-          process.send(random_neighbor, SendPushSum(new_s, new_w))
+
+          case can_send == 1 {
+            True -> {
+              process.send(random_neighbor, SendPushSum(new_s, new_w))
+              #(new_s, new_w)
+            }
+            False -> {
+              #(s, w)
+            }
+          }
+          // process.send(random_neighbor, SendPushSum(new_s, new_w))
           // process.send(default_actor, Shutdown)
         }
 
         False -> {
-          Nil
+          #(s, w)
         }
       }
 
@@ -335,8 +395,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
       // echo list.length(not_term_neighbors)
 
       let new_state = #(
-        new_s,
-        new_w,
+        step_s,
+        step_w,
         can_send,
         topology,
         algorithm,
@@ -348,7 +408,20 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_term_neighbors,
+        start_s,
+        start_w,
       )
+
+      let is_in_term_list = case
+        list.find(terminated_list, fn(k) { k == actor_id })
+      {
+        Ok(_) -> {
+          True
+        }
+        Error(_) -> {
+          False
+        }
+      }
 
       let continue1 = case ratio_stack_length == 2 {
         True -> {
@@ -359,10 +432,15 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
           let continue2 = case new_ratio {
             [a, b] -> {
               let diff = b -. a
-
-              case diff <. 0.0000000001 {
+              // echo terminated_list
+              // echo diff
+              //TODO Stop spamming Terminated messages, check to see if it is in terminated list
+              case
+                diff <. 0.0000000001 && is_in_term_list == False && s != start_s
+              {
                 True -> {
                   //Actor terminated, send and update central actor
+                  // echo terminated_list
                   process.send(client, Terminated(actor_id))
                 }
                 False -> {
@@ -419,6 +497,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
       let new_rumor_count = rumors + 1
@@ -437,6 +517,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       )
 
       actor.continue(State(
@@ -461,6 +543,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = state.internal
 
       let new_can_send = 1
@@ -481,6 +565,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       )
 
       actor.continue(State(
@@ -527,6 +613,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = sent_state.internal
 
       let total_actors = number_of_nodes
@@ -582,6 +670,8 @@ fn handle_message(state: State, msg: Message) -> actor.Next(State, Message) {
         terminated_list,
         terminated_neighbor_list,
         not_terminated_neighbors,
+        start_s,
+        start_w,
       ) = sent_state.internal
 
       actor.continue(state)
@@ -701,6 +791,8 @@ fn handle_args(args) {
           [],
           [],
           [],
+          initial_s,
+          initial_w,
         ),
         [],
         [],
@@ -729,6 +821,8 @@ fn handle_args(args) {
               [],
               [],
               [],
+              initial_s,
+              initial_w,
             ),
             [],
             [],
@@ -783,6 +877,8 @@ fn handle_args(args) {
           [],
           [],
           [],
+          initial_s,
+          initial_w,
         ),
         [],
         [],
@@ -805,9 +901,9 @@ fn handle_args(args) {
     time_now_ms,
   )
 
-  process.sleep(2000)
+  // process.sleep(2000)
 
-  process.sleep(2000)
+  process.sleep(1000)
 
   case algorithm {
     "gossip" ->
@@ -869,7 +965,7 @@ fn step_actors_gossip(actor_list, central_actor, step) {
 }
 
 fn step_actors_pushsum(actor_list, central_actor, step) {
-  // process.sleep(100)
+  process.sleep(10)
   case step % 5 == 0 {
     True -> {
       get_internal_pushsum(actor_list, central_actor)
@@ -913,22 +1009,6 @@ pub fn intersect(a: List(Int), b: List(Int)) -> List(Int) {
   list.filter(a, fn(x) { list.contains(b, x) })
 }
 
-fn create_default_actor() {
-  let assert Ok(default_actor) =
-    actor.new(
-      State(
-        #(0.0, 0.0, 0, "default", "default", [], 0, 0.0, -1, [], [], [], []),
-        [],
-        [],
-        [],
-      ),
-    )
-    |> actor.on_message(handle_message)
-    |> actor.start
-
-  default_actor.data
-}
-
 pub fn filter_not_in(
   a: List(#(Int, process.Subject(Message), Int, Int, Int)),
   b: List(Int),
@@ -942,25 +1022,6 @@ pub fn filter_not_in(
       // id not in b → keep
     }
   })
-}
-
-//todo index list
-
-pub fn first_not_in_index(a: List(Int), b: List(Int)) -> Result(Int, Nil) {
-  find_index(a, b, 0)
-}
-
-fn find_index(a: List(Int), b: List(Int), idx: Int) -> Result(Int, Nil) {
-  case a {
-    [] -> Error(Nil)
-    [x, ..rest] ->
-      case list.find(b, fn(y) { y == x }) {
-        Ok(_) -> find_index(rest, b, idx + 1)
-        // x is in b, continue
-        Error(_) -> Ok(idx)
-        // x not in b, return index
-      }
-  }
 }
 
 fn nth(xs: List(String), i: Int) -> Result(String, Nil) {
@@ -1143,6 +1204,8 @@ fn set_up_full_topology(
       [],
       [],
       neighbor_list,
+      initial_s,
+      initial_w,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -1216,6 +1279,8 @@ fn set_up_line_topology(
       [],
       [],
       neighbor_list,
+      initial_s,
+      initial_w,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -1331,6 +1396,8 @@ fn set_up_three_d_topology(
       [],
       [],
       output,
+      initial_s,
+      initial_w,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -1446,6 +1513,8 @@ fn set_up_three_d_imperfect_topology(
       [],
       [],
       output,
+      initial_s,
+      initial_w,
     )
     process.send(actor, SetInternal(internal_state))
   })
@@ -1499,6 +1568,8 @@ pub fn cube_coords(
                 [],
                 [],
                 [],
+                initial_s,
+                initial_w,
               ),
               [],
               [],
