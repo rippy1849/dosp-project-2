@@ -947,7 +947,7 @@ fn start_pushsum(actor_list, central_actor, default_placeholder) {
 }
 
 fn step_actors_gossip(actor_list, central_actor, step) {
-  // process.sleep(1000)
+  process.sleep(10)
   case step % 5 == 0 {
     True -> {
       get_internal_gossip(actor_list, central_actor)
