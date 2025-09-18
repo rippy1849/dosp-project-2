@@ -19,6 +19,20 @@ Further documentation can be found at <https://hexdocs.pm/gossip>.
 ## Development
 
 ```sh
-gleam run   # Run the project
+gleam run numNodes topology algorithm   # Run the project
 gleam test  # Run the tests
 ```
+## Team Members
+- Andrew Rippy
+- B Sri Vaishnavi
+
+## What is Working
+- Implementation of Gossip and Push-Sum algorithms.
+- Convergence time measurements for various topologies.
+  - Full topology
+  - Line topology
+  - 3D topology
+  - imp3D topology
+
+## Largest Network Size
+- Successfully managed up to 400 nodes for each type of topology and algorithm.
