@@ -2,7 +2,7 @@
 
 [![Package Version](https://img.shields.io/hexpm/v/gossip)](https://hex.pm/packages/gossip)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/gossip/)
-[Project Repository](https://github.com/rippy1849/dosp-project-2)
+
 
 
 ```sh
@@ -17,6 +17,7 @@ pub fn main() -> Nil {
 ```
 
 Further documentation can be found at <https://hexdocs.pm/gossip>.
+You can find the code in the [GitHub repo](https://github.com/rippy1849/dosp-project-2).
 
 ## Development
 
