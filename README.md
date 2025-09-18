@@ -31,10 +31,10 @@ gleam test  # Run the tests
 ## What is Working
 - Implementation of Gossip and Push-Sum algorithms.
 - Convergence time measurements for various topologies.
-  - Full topology
-  - Line topology
-  - 3D topology
-  - imp3D topology
+  - Full topology (full)
+  - Line topology (line)
+  - 3D topology (3D)
+  - imp3D topology (imp3D)
 
 ## Largest Network Size
 - Successfully managed up to 400 nodes for each type of topology and algorithm.
