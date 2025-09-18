@@ -20,6 +20,8 @@ Further documentation can be found at <https://hexdocs.pm/gossip>.
 
 ```sh
 gleam run numNodes topology algorithm   # Run the project
+# gleam run 100 full gossip
+
 gleam test  # Run the tests
 ```
 ## Team Members
